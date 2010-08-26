@@ -1,7 +1,7 @@
 # -*- coding:utf-8 -*-
 
-require 'stratum/model'
-require 'stratum/connection'
+require_relative './stratum/model'
+require_relative './stratum/connection'
 
 class InvalidOperator < StandardError ; end
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-require 'stratum'
+require_relative '../stratum'
 
 class AuthInfo < Stratum::Model
   table :auth_info

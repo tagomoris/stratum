@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-require 'stratum'
+require_relative '../stratum'
 
-require 'spec/testdatabase'
-require 'spec/testdatamodel'
+require_relative './testdatabase'
+require_relative './testdatamodel'
 
 SERVERNAME = 'localhost'
 USERNAME = 'root'
@@ -213,9 +213,9 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     class Test12 < Stratum::Model
       field :efef, :bool, :default => true
     end
-    Test12.public_instance_methods.should include('efef')
-    Test12.public_instance_methods.should include('efef?')
-    Test12.public_instance_methods.should include('efef=')
+    Test12.public_instance_methods(true).should include(:efef)
+    Test12.public_instance_methods(true).should include(:efef?)
+    Test12.public_instance_methods(true).should include(:efef=)
   end
 
   it "に :string :stringlist および :taglist のフィールド定義により #fieldname #fieldname= の2メソッドが定義されること" do
@@ -224,12 +224,12 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
       field :wfwf, :stringlist, :length => 1000, :separator => ' '
       field :efef, :taglist
     end
-    Test13.public_instance_methods.should include('ofof')
-    Test13.public_instance_methods.should include('ofof=')
-    Test13.public_instance_methods.should include('wfwf')
-    Test13.public_instance_methods.should include('wfwf=')
-    Test13.public_instance_methods.should include('efef')
-    Test13.public_instance_methods.should include('efef=')
+    Test13.public_instance_methods(true).should include(:ofof)
+    Test13.public_instance_methods(true).should include(:ofof=)
+    Test13.public_instance_methods(true).should include(:wfwf)
+    Test13.public_instance_methods(true).should include(:wfwf=)
+    Test13.public_instance_methods(true).should include(:efef)
+    Test13.public_instance_methods(true).should include(:efef=)
   end
 
   it "に :ref および :reflist のフィールド定義により #fieldname #fieldname_by_id #fieldname= #fieldname_by_id= の4メソッドが定義されること" do
@@ -237,14 +237,14 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
       field :fff, :ref, :model => 'Moge'
       field :ggg, :reflist, :model => 'GGG', :empty => :allowed
     end
-    Test14.public_instance_methods.should include('fff')
-    Test14.public_instance_methods.should include('fff=')
-    Test14.public_instance_methods.should include('fff_by_id')
-    Test14.public_instance_methods.should include('fff_by_id=')
-    Test14.public_instance_methods.should include('ggg')
-    Test14.public_instance_methods.should include('ggg=')
-    Test14.public_instance_methods.should include('ggg_by_id')
-    Test14.public_instance_methods.should include('ggg_by_id=')
+    Test14.public_instance_methods(true).should include(:fff)
+    Test14.public_instance_methods(true).should include(:fff=)
+    Test14.public_instance_methods(true).should include(:fff_by_id)
+    Test14.public_instance_methods(true).should include(:fff_by_id=)
+    Test14.public_instance_methods(true).should include(:ggg)
+    Test14.public_instance_methods(true).should include(:ggg=)
+    Test14.public_instance_methods(true).should include(:ggg_by_id)
+    Test14.public_instance_methods(true).should include(:ggg_by_id=)
   end
 
   it "に :bool のフィールドがinitialize内で正常に :default で指定した値にセットされること" do

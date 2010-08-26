@@ -1,12 +1,7 @@
 # -*- coding: utf-8 -*-
 
-### pre-1.9 ruby workaround
-require 'jcode'
-require 'nkf'
-$KCODE = 'u'
-###
-
 require 'mysql'
+
 class Mysql
   class Time
     def addseconds(sec)
@@ -61,7 +56,7 @@ module Stratum
     end
 
     def self.field_by(column)
-      result = $STRATUM_MODEL_FIELDS[self][:fields].index(column.to_s) #TODO .key() in 1.9
+      result = $STRATUM_MODEL_FIELDS[self][:fields].key(column.to_s)
       raise InvalidFieldName, "unknown column: #{column.to_s} for class #{self.name}" unless result
       result
     end
@@ -338,15 +333,13 @@ module Stratum
         raise FieldValidationError, fname unless fdef[:empty]
         raw = ''
       else
-        #TODO fix for ruby 1.9 ?
-        # raw = value.encode('utf-8') # for 1.9
-        raw = NKF.nkf('-wd', value)
+        raw = value.encode('utf-8')
         if fdef[:selector]
           raise FieldValidationError, fname unless fdef[:selector].include?(raw)
         elsif fdef[:validator]
           raise FieldValidationError, fname unless self.send(fdef[:validator], raw)
         elsif fdef[:length]
-          raise FieldValidationError, fname unless raw.jlength <= fdef[:length] #TODO fix for ruby 1.9? String#length
+          raise FieldValidationError, fname unless raw.length <= fdef[:length]
         end
       end
 
@@ -368,20 +361,13 @@ module Stratum
         raise FieldValidationError, fname unless fdef[:empty]
         ary = []
       else
-        #TODO fix for ruby 1.9 ?
-        if value.is_a?(Array)
-           #TODO fix for ruby 1.9? String#length
-          raise FieldValidationError, fname unless value.map{|e| NKF.nkf('-wd', e.to_s)}.join(sep).jlength <= fdef[:length]
-        elsif value.is_a?(String)
-          #TODO fix for ruby 1.9? String#length
-          raise FieldValidationError, fname unless value.jlength <= fdef[:length]
-          ary = NKF.nkf('-wd', value).split(sep)
-        else
-          str = NKF.nkf('-wd', value.to_s)
-          #TODO fix for ruby 1.9? String#length
-          raise FieldValidationError, fname unless str.jlength <= fdef[:length]
-          ary = value.split(sep)
+        unless value.is_a?(Array) or value.is_a?(String)
+          raise FieldValidationError, "stringlist accepts only Array or String(splitted by separator)"
         end
+        ary = value.split(sep) if value.is_a?(String)
+        ary = ary.map{|s| s.to_s.encode('utf-8')}
+        
+        raise FieldValidationError, "value too long" unless ary.join(sep).length <= fdef[:length]
       end
 
       self.prepare_to_update
@@ -402,7 +388,7 @@ module Stratum
         ary = []
       end
       self.prepare_to_update
-      @values[self.class.column_by(fname)] = ary.map{|e| NKF.nkf('-wd', e.to_s)}
+      @values[self.class.column_by(fname)] = ary.map{|e| e.to_s.encode('utf-8')}
       value
     end
 
