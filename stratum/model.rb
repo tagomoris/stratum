@@ -404,7 +404,7 @@ module Stratum
       id = self.read_field_ref_by_id(fname)
       return nil if id.nil?
 
-      cls = Module.const_get(self.class.definition(fname)[:model])
+      cls = eval(self.class.definition(fname)[:model])
       cls.get(id, :before => @timeslice)
     end
 
@@ -419,7 +419,7 @@ module Stratum
           raise FieldValidationError, fname
         end
         if fdef[:strict]
-          raise FieldValidationError, fname unless Module.const_get(fdef[:model]).get(id)
+          raise FieldValidationError, fname unless eval(fdef[:model]).get(id)
         end
       end
       
@@ -431,7 +431,7 @@ module Stratum
     def write_field_ref(fname, value)
       fdef = self.class.definition(fname)
       
-      id = if value.is_a?(Module.const_get(fdef[:model]))
+      id = if value.is_a?(eval(fdef[:model]))
              value.oid
            elsif value.nil?
              nil
@@ -450,7 +450,7 @@ module Stratum
       ids = self.read_field_reflist_by_id(fname)
       return [] if ids.size < 1
 
-      cls = Module.const_get(self.class.definition(fname)[:model])
+      cls = eval(self.class.definition(fname)[:model])
       cls.get(ids, :before => @timeslice)
     end
 
@@ -480,7 +480,7 @@ module Stratum
         ids.push(id)
       end
       if fdef[:strict]
-        objs = [Module.const_get(fdef[:model]).get(*ids)].flatten
+        objs = [eval(fdef[:model]).get(*ids)].flatten
         if objs.size != ids.size
           raise FieldValidationError, fname
         end
@@ -493,7 +493,7 @@ module Stratum
 
     def write_field_reflist(fname, value)
       fdef = self.class.definition(fname)
-      cls = Module.const_get(fdef[:model])
+      cls = eval(fdef[:model])
       
       unless value.is_a?(Array) or value.is_a?(cls)
         if value.nil? and fdef[:empty]
