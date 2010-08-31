@@ -9,7 +9,9 @@ module Stratum
   $STRATUM_OPERATOR_MODEL = NilClass
   $STRATUM_OPERATOR = nil
 
-  def self.operator_model(cls)
+  def self.operator_model(cls=nil)
+    return $STRATUM_OPERATOR_MODEL if cls.nil?
+
     unless cls.ancestors.include?(Stratum::Model)
       raise InvalidOperator, "invalid class for Stratum operator #{cls.name}"
     end
@@ -35,7 +37,7 @@ module Stratum
     $STRATUM_OPERATOR_MODEL.get(oid.to_i)
   end
 
-  OPERATOR_ROOT_OID = 0 # fix as your root user oid
+  # OPERATOR_ROOT_OID = 0 # fix as your root user oid
 
   def self.allocate_oid(conn=nil)
     c = conn

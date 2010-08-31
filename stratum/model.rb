@@ -333,6 +333,10 @@ module Stratum
         raise FieldValidationError, fname unless fdef[:empty]
         raw = ''
       else
+        unless value.is_a?(String)
+          raise FieldValidationError, "string accepts only String"
+        end
+
         raw = value.encode('utf-8')
         if fdef[:selector]
           raise FieldValidationError, fname unless fdef[:selector].include?(raw)
