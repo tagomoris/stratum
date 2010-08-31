@@ -19,7 +19,10 @@ module Stratum
   end
 
   def self.current_operator(obj=nil)
-    return $STRATUM_OPERATOR if obj.nil?
+    if obj.nil?
+      raise RuntimeError, "not set any operator" unless $STRATUM_OPERATOR
+      return $STRATUM_OPERATOR
+    end
 
     if $STRATUM_OPERATOR_MODEL.nil?
       raise InvalidOperator, "operator_model is not specified yet."
