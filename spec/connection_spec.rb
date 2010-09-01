@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-require 'stratum/connection'
-require 'spec/testdatabase'
+require_relative '../stratum/connection'
+require_relative '../spec/testdatabase'
 
 module Stratum
   class Connection

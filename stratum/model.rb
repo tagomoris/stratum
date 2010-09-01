@@ -451,7 +451,8 @@ module Stratum
       return [] if ids.size < 1
 
       cls = eval(self.class.definition(fname)[:model])
-      cls.get(ids, :before => @timeslice)
+      set = cls.get(ids, :before => @timeslice)
+      ids.map{|i| set.select{|o| o.oid == i}}.flatten
     end
 
     def write_field_reflist_by_id(fname, value)
