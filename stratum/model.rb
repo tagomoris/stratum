@@ -613,6 +613,20 @@ module Stratum
       result
     end
 
+    def self.getlist(key_field)
+      unless key_field.is_a?(Symbol) or key_field.is_a?(String)
+        raise ArgumentError, "invalid argument type #{key_field.class}"
+      end
+      unless self.datatype(key_field)
+        raise ArgumentError, "unknown field name #{key_field} for model #{self.class.name}"
+      end
+      unless self.datatype(key_field) == :string
+        raise ArgumentError, "invalid type of field #{key_field} for getlist key field, needed :string"
+      end
+
+      self.regex_match(key_field => /./).sort{|a,b| a.send(key_field) <=> b.send(key_field)}
+    end
+    
     def self.query(opts={})
       # :unique => true option should be specified when queried condition and oid are connected 1-on-1
       # :force_all => true option returns result with removed=true

@@ -1707,6 +1707,28 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.size.should eql(1000)
   end
 
+  it "に、条件なし、もしくは複数の条件で .getlist し、例外が発生すること" do
+    lambda {TestData.getlist()}.should raise_exception(ArgumentError)
+    lambda {TestData.getlist(:string1, :string2)}.should raise_exception(ArgumentError)
+  end
+
+  it "に :string 以外のフィールドに対して .getlist し、例外が発生すること" do 
+    lambda {TestData.regex_match(:flag1 => /true/)}.should raise_exception(ArgumentError)
+    lambda {TestData.regex_match(:list1 => /moge/)}.should raise_exception(ArgumentError)
+    lambda {TestData.regex_match(:testex2s => /i/)}.should raise_exception(ArgumentError)
+  end
+
+  it "に :string のフィールドを指定して .getlist し、すべてのオブジェクトがソートされて返ること" do 
+    @conn.query("DELETE FROM #{TestEX1.tablename}")
+    i = 3001
+    ["hogemoge", "abcsdare01","hogekakakaka","abcsdare03","abcsdare02","WAWAWA01", "wawawa02"].each do |s|
+      @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=#{i},name='#{s}',operated_by=1")
+      i += 1
+    end
+    ary = TestEX1.getlist(:name)
+    ary.map(&:name).should eql(["WAWAWA01","abcsdare01","abcsdare02","abcsdare03","hogekakakaka","hogemoge","wawawa02"])
+  end
+
   it "に :bool のみを条件に .query し、条件に該当するオブジェクトが存在しない場合に空配列が返ること" do
     tdoid1 = 10311
     tdoid2 = 10312
