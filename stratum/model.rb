@@ -28,6 +28,35 @@ module Stratum
 end
 
 module Stratum
+  def self.preload(models, cls)
+    cls.fields.each do |f|
+      fdef = cls.definition(f)
+      next unless fdef
+      next unless fdef[:datatype] == :ref or fdef[:datatype] == :reflist
+
+      fcls = eval(cls.definition(f)[:model])
+      targets = []
+
+      if fdef[:datatype] == :ref
+        models.each do |m|
+          oid = m.send(f.to_s + '_by_id')
+          if oid
+            targets.push(oid)
+          end
+        end
+      else
+        models.each do |m|
+          oids = m.send(f.to_s + '_by_id')
+          if oids.size > 0
+            targets += oids
+          end
+        end
+      end
+
+      fcls.get(targets)
+    end
+  end
+
   module ModelCache
     # DON'T USE THIS CACHE DIRECTLY FROM OUT OF THIS MODULE
 
