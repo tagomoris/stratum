@@ -28,6 +28,36 @@ module Stratum
 end
 
 module Stratum
+  module ModelCache
+    # DON'T USE THIS CACHE DIRECTLY FROM OUT OF THIS MODULE
+
+    $STRATUM_MODEL_CACHE_BOX = {}
+    
+    EXPIRE_SECONDS = 15
+
+    def self.get(oid)
+      val = $STRATUM_MODEL_CACHE_BOX[oid]
+      return nil if val.nil?
+
+      if Time.now > val[1]
+        $STRATUM_MODEL_CACHE_BOX.delete(oid)
+        return nil
+      end
+
+      val[0]
+    end
+
+    def self.set(model)
+      $STRATUM_MODEL_CACHE_BOX[model.oid] = [model, Time.now + EXPIRE_SECONDS]
+    end
+
+    def self.flush
+      $STRATUM_MODEL_CACHE_BOX = {}
+    end
+  end
+end
+
+module Stratum
   class Model
     $STRATUM_MODEL_TABLENAMES = Hash.new
     $STRATUM_MODEL_FIELDS = Hash.new
@@ -531,43 +561,61 @@ module Stratum
              end
       ret_single = (key.size == 1 and not key[0].is_a?(Array))
 
-      keys = key.flatten
+      key_oids = key.flatten
       if opts[:before] and not ret_single
-        return keys.map{|k| self.get(k, opts)}.select{|i| not i.nil?}
+        return key_oids.map{|k| self.get(k, opts)}.select{|i| not i.nil?}
       end
 
-      oidunit = 'oid=?'
-      cond = oidunit.dup
-      i = 1
-      while i < keys.length
-        cond += (' OR ' + oidunit)
-        i += 1
+      keys = key_oids.dup
+      models = {}
+
+      unless opts[:before]
+        keys.dup.each do |oid|
+          m = ModelCache.get(oid)
+          next if m.nil?
+
+          models[oid] = m
+          keys.delete(oid)
+        end
       end
-      fieldnames = self.columns.join(',')
 
-      head_cond = opts[:before] ? "" : " AND head=?"
-      removed_cond = opts[:force_all] ? "" : " AND removed=?"
-      before_cond = opts[:before] ? " AND inserted_at <= ? ORDER BY id DESC LIMIT 1" : ""
-      sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond})#{head_cond}#{removed_cond}#{before_cond}"
+      if keys.size > 0
+        oidunit = 'oid=?'
+        cond = oidunit.dup
+        i = 1
+        while i < keys.length
+          cond += (' OR ' + oidunit)
+          i += 1
+        end
+        fieldnames = self.columns.join(',')
 
-      keys.push(BOOL_TRUE) unless opts[:before]
-      keys.push(BOOL_FALSE) unless opts[:force_all]
-      keys.push(opts[:before]) if opts[:before]
+        head_cond = opts[:before] ? "" : " AND head=?"
+        removed_cond = opts[:force_all] ? "" : " AND removed=?"
+        before_cond = opts[:before] ? " AND inserted_at <= ? ORDER BY id DESC LIMIT 1" : ""
+        sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond})#{head_cond}#{removed_cond}#{before_cond}"
 
-      conn = Stratum.conn
-      st = conn.prepare(sql)
-      st.execute(*keys)
+        keys.push(BOOL_TRUE) unless opts[:before]
+        keys.push(BOOL_FALSE) unless opts[:force_all]
+        keys.push(opts[:before]) if opts[:before]
 
-      result = []
-      while pairs = st.fetch_hash
-        result.push(self.new(pairs, :before => opts[:before]))
+        Stratum.conn do |conn|
+          st = conn.prepare(sql)
+          st.execute(*keys)
+          while pairs = st.fetch_hash
+            obj = self.new(pairs, :before => opts[:before])
+            models[obj.oid] = obj
+            if obj and not opts[:before]
+              ModelCache.set(obj)
+            end
+          end
+          st.free_result
+        end
       end
-      st.free_result
 
-      conn.release
-
-      return result[0] if ret_single
-      result
+      return models[key_oids.first] if ret_single
+      ary = key_oids.map{|i| models[i]}
+      ary.delete(nil)
+      ary
     end
 
     def self.retrospect(oid)
@@ -771,12 +819,16 @@ module Stratum
       raise InvalidUpdateError, "un-updatable object" unless self.updatable?
       return self if self.saved?
 
+      ModelCache.flush()
+
       if self.oid.nil?
         return self.insert(:oid => Stratum.allocate_oid)
       end
 
       Stratum.transaction do |c|
         prehead = self.class.get(oid)
+        ModelCache.flush()
+        
         unless prehead
           raise InvalidUpdateError, "specified object to save has invalid oid, without any records"
         end
@@ -795,8 +847,12 @@ module Stratum
         raise InvalidUpdateError, "you can remove only updatable and not updated object"
       end
 
+      ModelCache.flush()
+
       Stratum.transaction do |c|
         prehead = self.class.get(self.oid)
+        ModelCache.flush()
+
         unless prehead
           raise InvalidUpdateError, "specified object to save has invalid oid, without any records"
         end
@@ -807,6 +863,7 @@ module Stratum
         self.class.update_unheadnize(prehead.id)
         self.insert(:removed => true)
       end
+      ModelCache.flush()
       self
     end
 

@@ -14,6 +14,10 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
   # DSL, getter/setter definition
   # この場でクラス定義しては結果を見る
   
+  before do
+    Stratum::ModelCache.flush()
+  end
+
   it "に .table でセットしたテーブル名が .tablename で正常に読み出せること" do
     class Test01 < Stratum::Model
       table :hogetable
@@ -556,6 +560,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
 
   before do
     @conn = Stratum::Connection.new()
+    Stratum::ModelCache.flush()
   end
 
   after do
