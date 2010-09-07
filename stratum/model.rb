@@ -29,12 +29,16 @@ end
 
 module Stratum
   def self.preload(models, cls)
+    cls_oid_list = {}
     cls.fields.each do |f|
       fdef = cls.definition(f)
       next unless fdef
       next unless fdef[:datatype] == :ref or fdef[:datatype] == :reflist
 
       fcls = eval(cls.definition(f)[:model])
+      unless cls_oid_list[fcls]
+        cls_oid_list[fcls] = []
+      end
       targets = []
 
       if fdef[:datatype] == :ref
@@ -53,7 +57,11 @@ module Stratum
         end
       end
 
-      fcls.get(targets)
+      cls_oid_list[fcls] += targets
+    end
+
+    cls_oid_list.keys.each do |c|
+      c.get(cls_oid_list[c])
     end
   end
 
