@@ -146,6 +146,14 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     }.should raise_exception(Stratum::InvalidFieldDefinition)
   end
 
+  it "に :bool は :normalizer を拒絶すること" do
+    lambda {
+      class TestXX < Stratum::Model
+        field :fb, :bool, :default => true, :normalizer => 'moge'
+      end
+    }.should raise_exception(Stratum::InvalidFieldDefinition)
+  end
+
   it "に :string はvalidation用として :selector/:length/:validator のどれかを要求すること" do
     lambda {
       class Test09a < Stratum::Model
@@ -192,6 +200,14 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     }.should raise_exception(Stratum::InvalidFieldDefinition)
   end
 
+  it "に :stringlist は :normalizer を拒絶すること" do
+    lambda {
+      class TestXX < Stratum::Model
+        field :sl, :stringlist, :length => 10, :normalizer => 'moge'
+      end
+    }.should raise_exception(Stratum::InvalidFieldDefinition)
+  end
+
   it "に :ref および :reflist は :model を要求すること" do
     lambda {
       class Test11a < Stratum::Model
@@ -209,6 +225,20 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     lambda {
       class Test11c < Stratum::Model
         field :f2, :reflist
+      end
+    }.should raise_exception(Stratum::InvalidFieldDefinition)
+  end
+
+  it "に :ref および :reflist は :normalizer を拒絶すること" do
+    lambda {
+      class TestXX < Stratum::Model
+        field :rr, :ref, :model => 'F3Model', :normalizer => 'moge'
+      end
+    }.should raise_exception(Stratum::InvalidFieldDefinition)
+
+    lambda {
+      class TestYY < Stratum::Model
+        field :rl, :reflist, :model => 'F4Model', :normalizer => 'moge'
       end
     }.should raise_exception(Stratum::InvalidFieldDefinition)
   end
@@ -308,6 +338,35 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     t19 = Test19.new
     t19.val1 = "hogehoge pospos"
     t19.sqlvalue(:val1).should eql("hogehoge pospos")
+  end
+
+  it "に :string のフィールドに対して :normalizer を正常に通過していること" do
+    class TestNorm < Stratum::Model
+      field :val0, :string, :length => 100, :normalizer => 'denyer', :empty => :ok
+      field :val1, :string, :length => 100, :normalizer => 'abcnizer'
+      field :val2, :string, :length => 100, :normalizer => 'upcaser'
+
+      def denyer(str)
+        raise ArgumentError, "always deny"
+      end
+      def abcnizer(str)
+        str.tr('0123456789', 'abcdefghij')
+      end
+      def upcaser(str)
+        str.upcase
+      end
+    end
+
+    tn = TestNorm.new
+    tn.val0 = nil
+    tn.val0 = ""
+    lambda {tn.val0 = "hoge"}.should raise_exception(ArgumentError)
+    tn.val1 = '0'
+    tn.val1.should eql('a')
+    tn.val1 = '873209'
+    tn.val1.should eql('ihdcaj')
+    tn.val2 = 'hoge pos mogemoge'
+    tn.val2.should eql('HOGE POS MOGEMOGE')
   end
 
   it "に :string のvalidationで :selector が正常に働いていること" do

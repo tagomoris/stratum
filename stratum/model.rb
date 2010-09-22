@@ -210,7 +210,7 @@ module Stratum
         if fdef[:length] and fdef[:length] < 1
           raise InvalidFieldDefinition, ":length needs integer larger than zero for #{fname}"
         end
-        unknowns = fdef.keys - [:datatype, :selector, :length, :validator, :empty, :default]
+        unknowns = fdef.keys - [:datatype, :normalizer, :selector, :length, :validator, :empty, :default]
         if unknowns.size > 0
           raise InvalidFieldDefinition, "Unknown field options #{unknowns.join(',')}"
         end
@@ -405,6 +405,10 @@ module Stratum
         end
 
         raw = value.encode('utf-8')
+        if fdef[:normalizer]
+          raw = self.send(fdef[:normalizer], raw)
+        end
+        
         if fdef[:selector]
           raise FieldValidationError, "field #{fname} value not included in selector, #{value}" unless fdef[:selector].include?(raw)
         elsif fdef[:validator]
