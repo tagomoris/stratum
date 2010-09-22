@@ -609,7 +609,7 @@ module Stratum
       unless opts[:before]
         keys.dup.each do |oid|
           m = ModelCache.get(oid)
-          next if m.nil?
+          next if m.nil? or m.class != self
 
           models[oid] = m
           keys.delete(oid)
