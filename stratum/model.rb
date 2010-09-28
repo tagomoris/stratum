@@ -514,6 +514,7 @@ module Stratum
     end
 
     def read_field_reflist_by_id(fname)
+      return [] if @values[self.class.column_by(fname)].nil?
       @values[self.class.column_by(fname)]
     end
 
