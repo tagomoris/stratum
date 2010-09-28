@@ -24,7 +24,20 @@ module Stratum
 
   class InvalidUpdateError < StandardError ; end
 
-  class FieldValidationError < ArgumentError ; end
+  class FieldValidationError < ArgumentError
+    def initialize(msg, model=nil, field=nil)
+      @model = model
+      @field = field
+      super(msg)
+    end
+
+    def model
+      @model
+    end
+    def field
+      @field
+    end
+  end
 end
 
 module Stratum
@@ -397,11 +410,11 @@ module Stratum
 
       raw = value
       if value.nil? or value == ''
-        raise FieldValidationError, "field #{fname} cannot be empty" unless fdef[:empty]
+        raise FieldValidationError.new("field #{fname} cannot be empty", self.class, fname) unless fdef[:empty]
         raw = ''
       else
         unless value.is_a?(String)
-          raise FieldValidationError, "field type string accepts only String, but #{value.class.name}"
+          raise FieldValidationError.new("field type string accepts only String, but #{value.class.name}", self.class, fname)
         end
 
         raw = value.encode('utf-8')
@@ -410,11 +423,11 @@ module Stratum
         end
         
         if fdef[:selector]
-          raise FieldValidationError, "field #{fname} value not included in selector, #{value}" unless fdef[:selector].include?(raw)
+          raise FieldValidationError.new("field #{fname} value not included in selector, #{value}", self.class, fname) unless fdef[:selector].include?(raw)
         elsif fdef[:validator]
-          raise FieldValidationError, "field #{fname} validator function returns false" unless self.send(fdef[:validator], raw)
+          raise FieldValidationError.new("field #{fname} validator function returns false", self.class, fname) unless self.send(fdef[:validator], raw)
         elsif fdef[:length]
-          raise FieldValidationError, "field #{fname} length limit overrun" unless raw.length <= fdef[:length]
+          raise FieldValidationError.new("field #{fname} length limit overrun", self.class, fname) unless raw.length <= fdef[:length]
         end
       end
 
@@ -433,16 +446,16 @@ module Stratum
 
       ary = value
       if value.nil? or (value.is_a?(Array) and value.size == 0) or value == ''
-        raise FieldValidationError, "field #{fname}" unless fdef[:empty]
+        raise FieldValidationError.new("field #{fname}", self.class, fname) unless fdef[:empty]
         ary = []
       else
         unless value.is_a?(Array) or value.is_a?(String)
-          raise FieldValidationError, "stringlist accepts only Array or String(splitted by separator), but #{value.class.name}"
+          raise FieldValidationError.new("stringlist accepts only Array or String(splitted by separator), but #{value.class.name}", self.class, fname)
         end
         ary = value.split(sep) if value.is_a?(String)
         ary = ary.map{|s| s.to_s.encode('utf-8')}
         
-        raise FieldValidationError, "value too long" unless ary.join(sep).length <= fdef[:length]
+        raise FieldValidationError.new("value too long", self.class, fname) unless ary.join(sep).length <= fdef[:length]
       end
 
       self.prepare_to_update
@@ -459,7 +472,7 @@ module Stratum
       
       ary = [value].flatten
       if value.nil? or (value.is_a?(Array) and value.size == 0) or value == ''
-        raise FieldValidationError, "field #{fname} cannot be empty" unless fdef[:empty]
+        raise FieldValidationError.new("field #{fname} cannot be empty", self.class, fname) unless fdef[:empty]
         ary = []
       end
       self.prepare_to_update
@@ -483,14 +496,14 @@ module Stratum
       fdef = self.class.definition(fname)
       id = value.to_i
       if value.nil?
-        raise FieldValidationError, "field #{fname} cannot be empty" unless fdef[:empty]
+        raise FieldValidationError.new("field #{fname} cannot be empty", self.class, fname) unless fdef[:empty]
         id = nil
       else
         unless value.is_a?(Integer) or (value.is_a?(String) and value.to_i.to_s == value)
-          raise FieldValidationError, "field #{fname} accepts ref_oid(Integer) but #{value.class.name}"
+          raise FieldValidationError.new("field #{fname} accepts ref_oid(Integer) but #{value.class.name}", self.class, fname)
         end
         if fdef[:strict]
-          raise FieldValidationError, "field #{fname} gets invalid oid (object not found)" unless eval(fdef[:model]).get(id)
+          raise FieldValidationError.new("field #{fname} gets invalid oid (object not found)", self.class, fname) unless eval(fdef[:model]).get(id)
         end
       end
       
@@ -507,7 +520,7 @@ module Stratum
            elsif value.nil?
              nil
            else
-             raise FieldValidationError, "field #{fname} accepts model object #{fdef[:model]} or its oid, but #{value.class.name}"
+             raise FieldValidationError.new("field #{fname} accepts model object #{fdef[:model]} or its oid, but #{value.class.name}", self.class, fname)
            end
       self.write_field_ref_by_id(fname, id)
       value
@@ -531,7 +544,7 @@ module Stratum
       fdef = self.class.definition(fname)
 
       if value.nil? or (value.is_a?(Array) and value.size == 0)
-        raise FieldValidationError, "field #{fname} cannot be empty" unless fdef[:empty]
+        raise FieldValidationError.new("field #{fname} cannot be empty", self.class, fname) unless fdef[:empty]
         self.prepare_to_update
         @values[self.class.column_by(fname)] = []
         return value
@@ -548,14 +561,14 @@ module Stratum
              elsif v.is_a?(String) and v.to_i.to_s == v
                v.to_i
              else
-               raise FieldValidationError, "field #{fname} accepts ref_oid(Integer) list, but #{v.class.name}"
+               raise FieldValidationError.new("field #{fname} accepts ref_oid(Integer) list, but #{v.class.name}", self.class, fname)
              end
         ids.push(id)
       end
       if fdef[:strict]
         objs = [eval(fdef[:model]).get(*ids)].flatten
         if objs.size != ids.size
-          raise FieldValidationError, "field #{fname} gets invalid oid (object not found)"
+          raise FieldValidationError.new("field #{fname} gets invalid oid (object not found)", self.class, fname)
         end
       end
 
@@ -573,7 +586,7 @@ module Stratum
           self.write_field_reflist_by_id(fname, value)
           return value
         end
-        raise FieldValidationError, "field #{fname} accepts list of model (or nil, if :empty => :ok), but #{value.class.name}"
+        raise FieldValidationError.new("field #{fname} accepts list of model (or nil, if :empty => :ok), but #{value.class.name}", self.class, fname)
       end
 
       values = if value.is_a?(Array)
@@ -583,7 +596,7 @@ module Stratum
                end
       ids = []
       for v in values
-        raise FieldValidationError, "field #{fname} accepts list of #{fdef[:model]}, but #{v.class.name}" unless v.is_a?(cls)
+        raise FieldValidationError.new("field #{fname} accepts list of #{fdef[:model]}, but #{v.class.name}", self.class, fname) unless v.is_a?(cls)
         ids.push(v.oid)
       end
       self.write_field_reflist_by_id(fname, ids)
@@ -831,7 +844,7 @@ module Stratum
         oid = @values['oid']
       else
         if oid.nil?
-          raise FieldValidationError, "missing oid"
+          raise FieldValidationError.new("missing oid", self.class, :oid)
         end
         pairs['oid'] = oid
       end
