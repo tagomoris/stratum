@@ -42,6 +42,24 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     Test03.column_by(:f2).should eql('f2')
   end
 
+  it "に .fieldex を使用していないモデルに対して .ex でフィールド説明を読み出そうとすると正常に nil になること" do
+    class Test03x < Stratum::Model
+      field :f1, :bool, :default => true
+    end
+    Test03x.ex(:f1).should be_nil
+  end
+
+  it "に .fieldex でセットしたフィールド説明が .ex で正常に読み出せること" do
+    class Test03y < Stratum::Model
+      field :f1, :bool, :default => true
+      fieldex :f1, "hogehogepospos"
+      field :hoge, :string, :length => 20
+      fieldex :hoge, "日本語もOK!"
+    end
+    Test03y.ex(:f1).should eql("hogehogepospos")
+    Test03y.ex(:hoge).should eql("日本語もOK!")
+  end
+
   it "に 予約フィールド名 id/oid/inserted_at/operated_by/head/removed を使用しようとしたら例外となること" do
     lambda { class Test04a < Stratum::Model ; field :id, :bool, :default => true ; end }.should raise_exception(Stratum::InvalidFieldDefinition)
     lambda { class Test04b < Stratum::Model ; field :oid, :bool, :default => true ; end }.should raise_exception(Stratum::InvalidFieldDefinition)

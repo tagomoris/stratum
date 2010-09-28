@@ -135,6 +135,16 @@ module Stratum
       $STRATUM_MODEL_FIELDS[self][:fields].values
     end
 
+    def self.exs
+      return {} unless $STRATUM_MODEL_FIELDS[self][:exs]
+      $STRATUM_MODEL_FIELDS[self][:exs]
+    end
+
+    def self.ex(fname)
+      return nil unless $STRATUM_MODEL_FIELDS[self][:exs]
+      $STRATUM_MODEL_FIELDS[self][:exs][fname.to_sym]
+    end
+
     def self.field_by(column)
       result = $STRATUM_MODEL_FIELDS[self][:fields].key(column.to_s)
       raise InvalidFieldName, "unknown column: #{column.to_s} for class #{self.name}" unless result
@@ -172,12 +182,28 @@ module Stratum
       nil
     end
 
-    def self.field(fname, type, opts={})
+    def self.prepare_field_definition_stores
       if $STRATUM_MODEL_FIELDS[self].nil?
         $STRATUM_MODEL_FIELDS[self] = {}
+      end
+      if $STRATUM_MODEL_FIELDS[self][:fields].nil?
         $STRATUM_MODEL_FIELDS[self][:fields] = Hash[*(RESERVED_FIELDS.map{|f| [f, f.to_s]}.flatten)]
+      end
+      if $STRATUM_MODEL_FIELDS[self][:defs].nil?
         $STRATUM_MODEL_FIELDS[self][:defs] = {}
       end
+      if $STRATUM_MODEL_FIELDS[self][:exs].nil?
+        $STRATUM_MODEL_FIELDS[self][:exs] = {}
+      end
+    end
+
+    def self.fieldex(fname, ex_s)
+      self.prepare_field_definition_stores()
+      $STRATUM_MODEL_FIELDS[self][:exs][fname.to_sym] = ex_s
+    end
+
+    def self.field(fname, type, opts={})
+      self.prepare_field_definition_stores()
 
       if RESERVED_FIELDS.include?(fname.to_sym)
         raise InvalidFieldDefinition, "field #{fname.to_s} reverved by Stratum::Model"
