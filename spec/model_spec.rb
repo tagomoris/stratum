@@ -364,13 +364,13 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
       field :val1, :string, :length => 100, :normalizer => 'abcnizer'
       field :val2, :string, :length => 100, :normalizer => 'upcaser'
 
-      def denyer(str)
+      def self.denyer(str)
         raise ArgumentError, "always deny"
       end
-      def abcnizer(str)
+      def self.abcnizer(str)
         str.tr('0123456789', 'abcdefghij')
       end
-      def upcaser(str)
+      def self.upcaser(str)
         str.upcase
       end
     end

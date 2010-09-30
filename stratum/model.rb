@@ -445,7 +445,7 @@ module Stratum
 
         raw = value.encode('utf-8')
         if fdef[:normalizer]
-          raw = self.send(fdef[:normalizer], raw)
+          raw = self.class.send(fdef[:normalizer], raw)
         end
         
         if fdef[:selector]
@@ -775,7 +775,11 @@ module Stratum
                 when :bool
                   v ? BOOL_TRUE : BOOL_FALSE
                 when :string
-                  v
+                  if self.definition(k)[:normalizer]
+                    self.send(fdef[:normalizer], v.encode('utf-8'))
+                  else
+                    v.encode('utf-8')
+                  end
                 when :stringlist
                   [v].flatten.join(self.definition(k)[:separator])
                 when :taglist
