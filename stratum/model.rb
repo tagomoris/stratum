@@ -776,7 +776,7 @@ module Stratum
                   v ? BOOL_TRUE : BOOL_FALSE
                 when :string
                   if self.definition(k)[:normalizer]
-                    self.send(fdef[:normalizer], v.encode('utf-8'))
+                    self.send(self.definition(k)[:normalizer], v.encode('utf-8'))
                   else
                     v.encode('utf-8')
                   end

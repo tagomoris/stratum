@@ -18,6 +18,7 @@ class TestData < Stratum::Model
   field :string2, :string, :selector => OPTS, :default => 'OPT2'
   field :string3, :string, :validator => 'string3validator'
   field :text, :string, :column => 'string4', :length => 1024, :empty => :allowed
+  field :string5, :string, :length => 50, :normalizer => 'string5normalizer'
   field :list1, :stringlist, :separator => "\t", :length => 32, :empty => :allowed
   field :list2, :stringlist, :separator => "\t", :length => 4096
   field :list3, :stringlist, :separator => ',', :length => 4096, :empty => :allowed
@@ -28,7 +29,11 @@ class TestData < Stratum::Model
   field :testex2s, :reflist, :model => 'TestEX2', :empty => :allowed
 
   def string3validator(val)
-    val =~ // #TODO consider any matcher
+    val =~ //
+  end
+
+  def self.string5normalizer(val)
+    val.tr('Ａ-Ｚａ-ｚ', 'A-Za-z')
   end
 end
 

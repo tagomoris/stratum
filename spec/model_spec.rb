@@ -2042,6 +2042,27 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.oid.should eql(tdoid2)
   end
 
+  it "に :string のみを条件に .query したとき :normalize フィルタが設定されている場合には normalize 後の条件でクエリが実行されること" do
+    tdoid1 = 10367
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    vals = "flag2='0',string1='hoge',string3='three',string5='feJoAnx',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
+
+    ary1 = TestData.query(:string5 => 'feJoAnx')
+    ary1.size.should eql(1)
+    ary1.first.oid.should eql(tdoid1)
+
+    ary2 = TestData.query(:string5 => "ｆｅＪｏＡｎｘ")
+    ary2.size.should eql(1)
+    ary2.first.oid.should eql(tdoid1)
+    ary2.first.string5.should eql("feJoAnx")
+
+    ary3 = TestData.query(:string5 => "ｆｅＪoAｎｘ")
+    ary3.size.should eql(1)
+    ary3.first.oid.should eql(tdoid1)
+    ary3.first.string5.should eql("feJoAnx")
+  end
+
   it "に :stringlist のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
     tdoid1 = 10401
     tdoid2 = 10402
