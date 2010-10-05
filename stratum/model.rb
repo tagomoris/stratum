@@ -1102,5 +1102,12 @@ module Stratum
     def saved?
       @saved
     end
+
+    def ==(other)
+      self.class == other.class and
+        self.saved? and other.saved? and
+        self.oid == other.oid and
+        self.id == other.id
+    end
   end
 end
