@@ -177,6 +177,13 @@ module Stratum
       result
     end
 
+    def self.ref_fields_of(cls)
+      self.fields.select do |f|
+        (self.datatype(f) == :ref or self.datatype(f) == :reflist) and
+          eval(self.definition(f)[:model]) == cls
+      end
+    end
+
     def self.table(sym)
       $STRATUM_MODEL_TABLENAMES[self] = sym.to_s
       nil
@@ -833,7 +840,6 @@ module Stratum
       # return single object. if multi line result for select, raise exception
       # this method implicitly expect result is :unique
 
-      new_oid = Stratum.allocate_oid
       Stratum.transaction do |c|
         result = self.query(opts.merge({:unique => true}))
         return result if result
@@ -842,7 +848,7 @@ module Stratum
         for k in opts.keys
           obj.write_field(k, opts[k])
         end
-        return obj.insert(:oid => new_oid)
+        return obj.insert()
       end
     end
     
@@ -854,7 +860,6 @@ module Stratum
     end
 
     def insert(opts={})
-      oid = opts[:oid] ? opts[:oid] : nil
       removed = (opts.has_key?(:removed) and opts[:removed]) ? BOOL_TRUE : BOOL_FALSE
 
       pairs = {}
@@ -869,15 +874,10 @@ module Stratum
       pairs['head'] = BOOL_TRUE
       pairs['removed'] = removed
 
-      if @values['oid']
-        pairs['oid'] = @values['oid']
-        oid = @values['oid']
-      else
-        if oid.nil?
-          raise FieldValidationError.new("missing oid", self.class, :oid)
-        end
-        pairs['oid'] = oid
+      unless @values['oid']
+        raise FieldValidationError.new("missing oid, illegal status. tell to developler", self.class, :oid)
       end
+      pairs['oid'] = @values['oid']
 
       columns = pairs.keys
       setpairs = columns.map{|c| "#{c}=?"}.join(',')
@@ -896,9 +896,9 @@ module Stratum
 
     def save
       ###
-      # 1. check oid records already exists if oid setted.
-      # 2. (if exist, start transaction)
-      # 3. (update for non-head update)
+      # 1. check @unsaved_oid.
+      # 2. (if false, start transaction)
+      # 3.   (update for non-head update)
       # 4. insert head record
       # 5. (commit transaction)
       raise InvalidUpdateError, "un-updatable object" unless self.updatable?
@@ -906,8 +906,9 @@ module Stratum
 
       ModelCache.flush()
 
-      if self.oid.nil?
-        return self.insert(:oid => Stratum.allocate_oid)
+      if @unsaved_oid
+        @unsaved_oid = false
+        return self.insert()
       end
 
       Stratum.transaction do |c|
@@ -924,6 +925,7 @@ module Stratum
         self.class.update_unheadnize(prehead.id)
         self.insert()
       end
+      @unsaved_oid = false
       self
     end
 
@@ -949,10 +951,51 @@ module Stratum
         self.insert(:removed => true)
       end
       ModelCache.flush()
+      @unsaved_oid = false
+      self
+    end
+
+    def retained(obj)
+      state_saved = self.saved?
+      self.class.ref_fields_of(obj.class).each do |f|
+        f_by_id = f.to_s + '_by_id'
+        getter = f_by_id.to_sym
+        setter = (f_by_id + '=').to_sym
+
+        unless [self.send(getter)].flatten.include?(obj.oid)
+          if self.send(getter).is_a?(Array)
+            self.send(setter, self.send(getter) + [obj.oid])
+          else
+            self.send(setter, obj.oid)
+          end
+        end
+      end
+      # if none of update-field is done, Stratum::Model#save doesn't perform to save actually.
+      self.save if state_saved
+      self
+    end
+
+    def released(obj)
+      state_saved = self.saved?
+      self.class.ref_fields_of(obj.class).each do |f|
+        f_by_id = f.to_s + '_by_id'
+        getter = f_by_id.to_sym
+        setter = (f_by_id + '=').to_sym
+
+        if [self.send(getter)].flatten.include?(obj.oid)
+          if self.send(getter).is_a?(Array)
+            self.send(setter, self.send(getter).select{|v| v != obj.oid})
+          else
+            self.send(setter, nil)
+          end
+        end
+      end
+      self.save if state_saved
       self
     end
 
     def initialize(fetched={}, opts={})
+      @unsaved_oid = true
       @values = {}
       @saved = false
       @updatable = true
@@ -967,7 +1010,11 @@ module Stratum
         end
       end
 
-      return self if fetched.size < 1
+#      return self if fetched.size < 1
+      if fetched.size < 1
+        @values['oid'] = Stratum.allocate_oid
+        return self
+      end
 
       fetched.each_pair do |col, val|
         fname = self.class.field_by(col)
@@ -976,6 +1023,7 @@ module Stratum
 
         @values[col] = self.class.rawvalue(ftype, fdef, val)
       end
+      @unsaved_oid = false
       @saved = true
       if self.removed or not self.head
         @updatable = false

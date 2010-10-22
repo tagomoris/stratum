@@ -40,11 +40,13 @@ end
 class TestEX1 < Stratum::Model
   table :testex1
   field :name, :string, :length => 128
+  field :data, :ref, :model => 'TestData', :empty => :ok
 end
 
 class TestEX2 < Stratum::Model
   table :testex2
   field :name, :string, :length => 128
+  field :datas, :reflist, :model => 'TestData', :empty => :ok
 end
 
 class TestTag < Stratum::Model

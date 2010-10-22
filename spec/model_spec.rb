@@ -14,8 +14,19 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
   # DSL, getter/setter definition
   # この場でクラス定義しては結果を見る
   
+  before(:all) do
+    TestDatabase.prepare()
+    Stratum::Connection.setup(SERVERNAME, USERNAME, PASSWORD, DATABASE)
+    Stratum.operator_model(AuthInfo)
+    Stratum.current_operator(AuthInfo.query(:name => "tagomoris", :unique => true))
+  end
+
   before do
     Stratum::ModelCache.flush()
+  end
+
+  after(:all) do
+    TestDatabase.drop()
   end
 
   it "に .table でセットしたテーブル名が .tablename で正常に読み出せること" do
@@ -118,6 +129,14 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     Test06b.definition(:g4).should eql({:datatype => :ref, :model => 'G4', :empty => true})
     Test06b.definition(:g5).should eql({:datatype => :reflist, :model => 'Geee::G5', :empty => true})
   end
+
+  it "の .ref_fields_of(cls) で、そのクラスへの参照を格納する ref/reflist のフィールドリストが取得できること" do
+    class Test06x; end
+    TestData.ref_fields_of(Test06x).should eql([])
+    TestData.ref_fields_of(TestEX1).should eql([:testex1, :testex1s])
+    TestData.ref_fields_of(TestEX2).should eql([:testex2, :testex2s])
+  end
+  
 
   it "に :empty を指定するときは :allowed/:ok のみ許可され、内部状態としては true に変換されること" do
     lambda {
@@ -644,15 +663,19 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     @conn.close()
   end
 
+  after(:all) do
+    TestDatabase.drop()
+  end
+
   it "に .new 後に各フィールドの内部状態は正しく初期化されていること" do
     ex1 = TestEX1.new
-    ex1.raw_values.size.should eql(0)
+    ex1.raw_values.size.should eql(1) #only oid
     ex1.saved?.should be_false
     ex1.updatable?.should be_true
     ex1.instance_eval{@pre_update_id}.should be_nil
 
     ex2 = TestEX2.new
-    ex2.raw_values.size.should eql(0)
+    ex2.raw_values.size.should eql(1)
     ex2.saved?.should be_false
     ex2.updatable?.should be_true
     ex2.instance_eval{@pre_update_id}.should be_nil
@@ -660,7 +683,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   
   it "に .new 後の状態で :default 指定のあるフィールドは正しくセットされていること" do
     ai = AuthInfo.new
-    ai.raw_values.size.should eql(1)
+    ai.raw_values.size.should eql(2) # oid + default_field
     ai.raw_values['valid'].should eql(Stratum::Model::BOOL_TRUE)
     ai.valid.should be_true
     ai.valid?.should be_true
@@ -669,7 +692,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     ai.instance_eval{@pre_update_id}.should be_nil
 
     td = TestData.new
-    td.raw_values.size.should eql(3)
+    td.raw_values.size.should eql(4)
     td.raw_values['flag1'].should eql(Stratum::Model::BOOL_TRUE)
     td.raw_values['flag2'].should eql(Stratum::Model::BOOL_FALSE)
     td.flag1.should be_true
@@ -796,13 +819,14 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     td2.id.should be_nil
   end
 
-  it "に、既存オブジェクトの場合は #oid でoid値(Integer)がとれ、新オブジェクトの場合は nil となること" do
-    @conn.query("INSERT INTO testtable SET id=1779,oid=17772,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11'")
-    td1 = TestData.get(17772)
-    td1.oid.should eql(17772)
-    td2 = TestData.new
-    td2.oid.should be_nil
-  end
+  ####### deplicated specification
+  # it "に、既存オブジェクトの場合は #oid でoid値(Integer)がとれ、新オブジェクトの場合は nil となること" do
+  #   @conn.query("INSERT INTO testtable SET id=1779,oid=17772,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11'")
+  #   td1 = TestData.get(17772)
+  #   td1.oid.should eql(17772)
+  #   td2 = TestData.new
+  #   td2.oid.should be_nil
+  # end
   
   it "に、保存済みの場合は #inserted_at でタイムスタンプが取得でき、未保存の場合は nil となること" do
     @conn.query("INSERT INTO testtable SET id=1780,oid=17801,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11'")
@@ -903,10 +927,6 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     result.should_not be_nil
     td.saved?.should be_true
   end
-
-  after(:all) do
-    TestDatabase.drop()
-  end
 end
 
 describe Stratum::Model, "のオブジェクトに対してデータ操作するとき" do
@@ -923,6 +943,10 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
   after do
     @conn.close()
+  end
+
+  after(:all) do
+    TestDatabase.drop()
   end
 
   # behavior of getter/setter and validators(:strict) of ref/reflist
@@ -944,6 +968,8 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.raw_values['ref_oid'].should eql(tex1.oid)
   end
   
+  it "に :ref のフィールドに対して :model で指定したclassのオブジェクトを代入するとき、事前にセットされていたオブジェクトに対して #released が呼び出され、これからセットされるオブジェクトに対して #retained が呼び出されること"
+
   it "に :ref のvalidationで :strict がセットされていないとき、実際には存在しないoidを代入しても例外が発生しないこと" do
     td = TestData.new
     lambda {td.testex1_by_id = 9989}.should_not raise_exception(Stratum::FieldValidationError)
@@ -1009,6 +1035,8 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.raw_values['testex1_oids'].should eql([tex11.oid, tex12.oid, tex13.oid])
   end
   
+  it "に :reflist のフィールドに対して :model で指定したclassのオブジェクトのリストを代入するとき、代入前後の差分となるオブジェクトに対して無くなる方は #released がそれぞれ呼ばれ、追加される方は #retained がそれぞれ呼ばれること"
+
   it "に :reflist のvalidationで :strict がセットされていないとき、実際には存在しないoidのオブジェクトを含むリストを代入しても例外が発生しないこと" do
     td = TestData.new
     lambda {td.testex2s_by_id = [9919, 9929, 19929]}.should_not raise_exception(Stratum::FieldValidationError)
@@ -1049,9 +1077,254 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.sqlvalue(:testex2s).should eql('5,6,8,9')
   end
 
-  after(:all) do
-    TestDatabase.drop()
+  it "に #retained(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist すべてに obj がセット/挿入され、事前に #saved? == true の場合には更に #save されること" do
+    td1 = TestData.new
+    td1.save
+    td2 = TestData.new
+    td2.save
+    
+    # unsaved なオブジェクトはsaveされないこと
+    ex1 = TestEX1.new
+    ex1.save
+    ex1.name = "ex1"
+
+    ex1.saved?.should be_false
+    ex1.data.should be_nil
+
+    ex1.retained(td1)
+    ex1.data_by_id.should eql(td1.oid)
+    ex1.saved?.should be_false
+
+    ex2 = TestEX2.new
+    ex2.save
+    ex2.name = "ex2"
+
+    ex2.saved?.should be_false
+    ex2.datas.should eql([])
+    
+    ex2.retained(td1)
+    ex2.datas_by_id.should eql([td1.oid])
+    ex2.saved?.should be_false
+
+    ex2.retained(td2)
+    ex2.datas_by_id.should eql([td1.oid, td2.oid])
+    ex2.saved?.should be_false
+
+    # savedなオブジェクトはsaveされること
+    ex1a = TestEX1.new
+    ex1a.name = "ex1a"
+    ex1a.save
+    ex1a_pre_id = ex1a.id
+
+    ex1a.saved?.should be_true
+    ex1a.data.should be_nil
+
+    ex1a.retained(td1)
+    ex1a.data_by_id.should eql(td1.oid)
+    ex1a.saved?.should be_true
+    ex1a.id.should_not eql(ex1a_pre_id)
+
+    ex1a_post_id = ex1a.id
+    # 二度同じ操作の場合は何も行われないこと
+    ex1a.retained(td1)
+    ex1a.data_by_id.should eql(td1.oid)
+    ex1a.saved?.should be_true
+    ex1a.id.should eql(ex1a_post_id)
+
+    ex2a = TestEX2.new
+    ex2a.name = "ex2a"
+    ex2a.save
+    ex2a_pre_id = ex2a.id
+
+    ex2a.saved?.should be_true
+    ex2a.datas.should eql([])
+
+    ex2a.retained(td2)
+    ex2a.datas_by_id.should eql([td2.oid])
+    ex2a.saved?.should be_true
+    ex2a.id.should_not eql(ex2a_pre_id)
+
+    ex2a.retained(td1)
+    ex2a.datas_by_id.should eql([td2.oid, td1.oid])
+    ex2a.saved?.should be_true
+
+    # 二度同じオブジェクトは挿入されないこと
+    twice_pre_id = ex2a.id
+    ex2a.retained(td1)
+    ex2a.datas_by_id.should eql([td2.oid, td1.oid])
+    ex2a.saved?.should be_true
+    ex2a.id.should eql(twice_pre_id)
+
+    # 複数のフィールドに対して実行されること
+    ex = TestEX1.new
+    ex.save
+    
+    td1.saved?.should be_true
+    td1.testex1.should be_nil
+    td1.testex2.should be_nil
+    td1.testex1s.should eql([])
+    td1.testex2s.should eql([])
+    pre_id = td1.id
+    
+    td1.retained(ex)
+    td1.saved?.should be_true
+    td1.testex1_by_id.should eql(ex.oid)
+    td1.testex2_by_id.should be_nil
+    td1.testex1s_by_id.should eql([ex.oid])
+    td1.testex2s_by_id.should eql([])
+    td1.id.should_not eql(pre_id)
   end
+  it "に #released(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist すべてから obj が除去され、事前に #saved? == true の場合には更に #save されること" do
+    td1 = TestData.new
+    td1.save
+    td2 = TestData.new
+    td2.save
+    
+    # obj をどのフィールドにも持っていない場合には何も行われないこと
+    ex = TestEX1.new
+    ex.save
+    ex.data.should be_nil
+    ex.saved?.should be_true
+    pre_id = ex.id
+
+    ex.released(td1)
+    ex.data.should be_nil
+    ex.saved?.should be_true
+    ex.id.should eql(pre_id)
+
+    # unsaved なオブジェクトはsaveされないこと
+    ex1 = TestEX1.new
+    ex1.data = td1
+    ex1.save
+    ex1.name = "ex1"
+
+    ex1.saved?.should be_false
+    ex1.data_by_id.should eql(td1.oid)
+
+    ex1.released(td1)
+    ex1.data_by_id.should be_nil
+    ex1.saved?.should be_false
+
+    ex2 = TestEX2.new
+    ex2.datas = [td2, td1]
+    ex2.save
+    ex2.name = "ex2"
+
+    ex2.saved?.should be_false
+    ex2.datas_by_id.should eql([td2.oid, td1.oid])
+    
+    ex2.released(td1)
+    ex2.datas_by_id.should eql([td2.oid])
+    ex2.saved?.should be_false
+
+    ex2.released(td2)
+    ex2.datas_by_id.should eql([])
+    ex2.saved?.should be_false
+
+    # savedなオブジェクトはsaveされること
+    ex1a = TestEX1.new
+    ex1a.data = td2
+    ex1a.name = "ex1a"
+    ex1a.save
+    ex1a_pre_id = ex1a.id
+
+    ex1a.saved?.should be_true
+    ex1a.data_by_id.should eql(td2.oid)
+
+    ex1a.released(td2)
+    ex1a.data_by_id.should be_nil
+    ex1a.saved?.should be_true
+    ex1a.id.should_not eql(ex1a_pre_id)
+
+    ex1a_post_id = ex1a.id
+    # 二度同じ操作の場合は何も行われないこと
+    ex1a.released(td2)
+    ex1a.data_by_id.should be_nil
+    ex1a.saved?.should be_true
+    ex1a.id.should eql(ex1a_post_id)
+
+    ex2a = TestEX2.new
+    ex2a.name = "ex2a"
+    ex2a.datas = [td1, td2]
+    ex2a.save
+    ex2a_pre_id = ex2a.id
+
+    ex2a.saved?.should be_true
+    ex2a.datas_by_id.should eql([td1.oid, td2.oid])
+
+    ex2a.released(td1)
+    ex2a.datas_by_id.should eql([td2.oid])
+    ex2a.saved?.should be_true
+    ex2a.id.should_not eql(ex2a_pre_id)
+
+    ex2a.released(td2)
+    ex2a.datas_by_id.should eql([])
+    ex2a.saved?.should be_true
+
+    # 複数のフィールドに対して実行されること
+    ex1a = TestEX1.new
+    ex1b = TestEX1.new
+    ex1c = TestEX1.new
+    ex1a.save
+    ex1b.save
+    ex1c.save
+    ex2a = TestEX2.new
+    ex2b = TestEX2.new
+    ex2c = TestEX2.new
+    ex2a.save
+    ex2b.save
+    ex2c.save
+
+    td1.testex1 = ex1b
+    td1.testex2 = ex2b
+    td1.testex1s = [ex1c, ex1b, ex1a]
+    td1.testex2s = [ex2c, ex2b, ex2a]
+    td1.save
+
+    td1.saved?.should be_true
+    td1.testex1_by_id.should eql(ex1b.oid)
+    td1.testex2_by_id.should eql(ex2b.oid)
+    td1.testex1s_by_id.should eql([ex1c.oid, ex1b.oid, ex1a.oid])
+    td1.testex2s_by_id.should eql([ex2c.oid, ex2b.oid, ex2a.oid])
+    pre_id = td1.id
+    
+    td1.released(ex1b)
+    td1.saved?.should be_true
+    td1.testex1_by_id.should be_nil
+    td1.testex2_by_id.should eql(ex2b.oid)
+    td1.testex1s_by_id.should eql([ex1c.oid, ex1a.oid])
+    td1.testex2s_by_id.should eql([ex2c.oid, ex2b.oid, ex2a.oid])
+    td1.id.should_not eql(pre_id)
+    
+    pre_id = td1.id
+
+    td1.released(ex2c)
+    td1.saved?.should be_true
+    td1.testex1_by_id.should be_nil
+    td1.testex2_by_id.should eql(ex2b.oid)
+    td1.testex1s_by_id.should eql([ex1c.oid, ex1a.oid])
+    td1.testex2s_by_id.should eql([ex2b.oid, ex2a.oid])
+    td1.id.should_not eql(pre_id)
+  end
+
+  it "に :ref/:reflist のフィールドに新しくセットされるオブジェクトに対しては透過的に #retained(receiver) が呼ばれること" do
+    td = TestData.new
+    td.save
+
+    x1a = TestEX1.new
+    x1a.name = "x1a"
+    x1a.save
+
+    x1a.data.should be_nil
+
+    td.testex1 = x1a
+
+    # x1a.data_
+    
+  end
+  it "に :ref/:reflist のフィールドから除外されるオブジェクトのうち #saved? == true なものに対しては透過的に #released(receiver) が呼ばれること"
+  it "に :reflist のフィールドへの代入操作において代入前後でともにセットされたオブジェクトに対しては #retained/#released が呼ばれないこと"
+
 end
 
 describe Stratum::Model, "のオブジェクトのデータを保存するとき" do
@@ -1082,11 +1355,13 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
   after(:all) do
     TestDatabase.drop()
   end
+  
   # behavior of insert/update_unheadnize/save/remove
 
-  it "に #insert 呼び出しで oid がセットされておらず引数でも与えられていない場合、例外が発生すること" do
-    lambda {@td.insert()}.should raise_exception(Stratum::FieldValidationError)
-  end
+  # deprecated sepecification
+  # it "に #insert 呼び出しで oid がセットされておらず引数でも与えられていない場合、例外が発生すること" do
+  #   lambda {@td.insert()}.should raise_exception(Stratum::FieldValidationError)
+  # end
 
   it "に #insert 呼び出しで必ず id と inserted_at にはDBの自動挿入によるものがセットされること" do
     @td.raw_values['id'] = 50940
@@ -1094,7 +1369,7 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     now_my = Mysql::Time.new(now.year, now.month, now.day + 1, now.hour, now.min, now.sec)
     @td.raw_values['inserted_at'] = now_my
 
-    @td.insert(:oid => 1024)
+    @td.insert()
     @td.id.should_not be_nil
     @td.id.should_not eql(50940)
     @td.inserted_at.should_not be_nil
@@ -1103,29 +1378,29 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
   
   it "に #insert 呼び出しで必ず operated_by には Stratum.current_operator() でセットされた oid がセットされること" do
     @td.operated_by.should be_nil
-    @td.insert(:oid => 1025)
+    @td.insert()
     @td.operated_by.name.should eql("tagomoris")
   end
   
   it "に #insert 呼び出しで必ず head は BOOL_TRUE がセットされること" do
-    @td.insert(:oid => 1026)
+    @td.insert()
     @td.raw_values['head'].should eql(Stratum::Model::BOOL_TRUE)
   end
   
   it "に #insert 呼び出しで removed は :removed => true が指定された場合にのみ BOOL_TRUE にセットされること" do
     td2 = TestData.new
-    td2.overwrite(@td)
 
-    @td.insert(:oid => 1027)
+    @td.insert()
     @td.raw_values['removed'].should eql(Stratum::Model::BOOL_FALSE)
-    td2.insert(:oid => 1028, :removed => true)
+    td2.insert(:removed => true)
     td2.raw_values['removed'].should eql(Stratum::Model::BOOL_TRUE)
   end
 
   it "に #insert 呼び出しで内部状態のデータが正しくINSERTされること" do
     prehash = @td.raw_values.dup
-    @td.insert(:oid => 1029)
-    td = TestData.get(1029)
+    prehash.delete('oid')
+    @td.insert()
+    td = TestData.get(@td.oid)
     posthash = {}
     rv = td.raw_values
     for k in rv.keys
@@ -1137,7 +1412,7 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
   end
 
   it "に .update_unheadnize で指定された id のレコードでは head が BOOL_FALSE にセットされて更新されること" do
-    @td.insert(:oid => 1030)
+    @td.insert()
     @td.id.should_not be_nil
     @td.head.should be_true
     tdid = @td.id
@@ -1146,7 +1421,6 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
   end
 
   it "に oid のセットされていないオブジェクトを #save すると、新しい oid がセットされてINSERTされること" do
-    @td.oid.should be_nil
     @td.save
     @td.oid.should_not be_nil
     newoid = @td.oid
@@ -1170,11 +1444,12 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     lambda {td1.save}.should raise_exception(Stratum::InvalidUpdateError)
   end
 
-  it "に #save されるオブジェクトのもつoidについて、実際にはレコードが存在しない場合には例外が発生しINSERTが行われないこと" do
-    TestData.get(1031).should be_nil
-    @td.raw_values['oid'] = 1031
-    lambda {@td.save()}.should raise_exception(Stratum::InvalidUpdateError)
-  end
+  #### deplicated specification
+  # it "に #save されるオブジェクトのもつoidについて、実際にはレコードが存在しない場合には例外が発生しINSERTが行われないこと" do
+  #   TestData.get(9999999).should be_nil
+  #   @td.raw_values['oid'] = 9999999
+  #   lambda {@td.save()}.should raise_exception(Stratum::InvalidUpdateError)
+  # end
   
   it "に #save されるオブジェクトのもつoidについて、他から既に更新が入っていた場合には例外が発生しINSERTが行われないこと" do
     @td.save
@@ -1248,8 +1523,8 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
   end
   
   it "に #remove されるオブジェクトのもつoidについて、実際にはレコードが存在しない場合には例外が発生しINSERT(removed=BOOL_TRUE)が行われないこと" do
-    TestData.get(1041).should be_nil
-    @td.raw_values['oid'] = 1041
+    TestData.get(888888888).should be_nil
+    @td.raw_values['oid'] = 888888888
     lambda {@td.remove()}.should raise_exception(Stratum::InvalidUpdateError)
   end
   
