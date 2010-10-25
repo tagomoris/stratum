@@ -24,9 +24,11 @@ class TestData < Stratum::Model
   field :list3, :stringlist, :separator => ',', :length => 4096, :empty => :allowed
   field :taglist, :ref, :model => 'TestTag', :empty => :allowed
   field :testex1, :ref, :column => 'ref_oid', :model => 'TestEX1', :empty => :allowed
-  field :testex2, :ref, :model => 'TestEX2', :strict => true
-  field :testex1s, :reflist, :column => 'testex1_oids', :model => 'TestEX1', :strict => true
+  field :testex2, :ref, :model => 'TestEX2'
+  field :testex1s, :reflist, :column => 'testex1_oids', :model => 'TestEX1'
   field :testex2s, :reflist, :model => 'TestEX2', :empty => :allowed
+  field :ex1_ex, :ref, :model => 'TestEX1', :empty => :ok, :manualmaint => true
+  field :ex2s_ex, :reflist, :model => 'TestEX2', :empty => :ok, :manualmaint => true
 
   def string3validator(val)
     val =~ //

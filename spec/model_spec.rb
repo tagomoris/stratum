@@ -133,8 +133,8 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
   it "の .ref_fields_of(cls) で、そのクラスへの参照を格納する ref/reflist のフィールドリストが取得できること" do
     class Test06x; end
     TestData.ref_fields_of(Test06x).should eql([])
-    TestData.ref_fields_of(TestEX1).should eql([:testex1, :testex1s])
-    TestData.ref_fields_of(TestEX2).should eql([:testex2, :testex2s])
+    TestData.ref_fields_of(TestEX1).should eql([:testex1, :testex1s, :ex1_ex])
+    TestData.ref_fields_of(TestEX2).should eql([:testex2, :testex2s, :ex2s_ex])
   end
   
 
@@ -949,7 +949,6 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     TestDatabase.drop()
   end
 
-  # behavior of getter/setter and validators(:strict) of ref/reflist
   it "に :ref のフィールドに対して #NAME_by_id=() でoidが代入でき、 #NAME_by_id で正しく読み出せること" do
     td = TestData.new
     td.testex1_by_id = 9999
@@ -966,22 +965,6 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.testex1 = tex1
     td.testex1.name.should eql("hoge273")
     td.raw_values['ref_oid'].should eql(tex1.oid)
-  end
-  
-  it "に :ref のフィールドに対して :model で指定したclassのオブジェクトを代入するとき、事前にセットされていたオブジェクトに対して #released が呼び出され、これからセットされるオブジェクトに対して #retained が呼び出されること"
-
-  it "に :ref のvalidationで :strict がセットされていないとき、実際には存在しないoidを代入しても例外が発生しないこと" do
-    td = TestData.new
-    lambda {td.testex1_by_id = 9989}.should_not raise_exception(Stratum::FieldValidationError)
-  end
-  
-  it "に :ref のvalidationで :strict => true がセットされているとき、 実際には存在しないoidのオブジェクトを代入したときに例外が発生すること" do 
-    td = TestData.new
-    lambda {td.testex2_by_id = 9989}.should raise_exception(Stratum::FieldValidationError)
-    tex2 = TestEX2.new
-    tex2.name = "hoge274"
-    tex2.save
-    lambda {td.testex2_by_id = tex2.oid}.should_not raise_exception(Stratum::FieldValidationError)
   end
   
   it "に :ref のvalidationで :empty の値が :ok/allowed の場合にのみnilの代入を許し、内部状態がnilにセットされること" do
@@ -1035,29 +1018,6 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.raw_values['testex1_oids'].should eql([tex11.oid, tex12.oid, tex13.oid])
   end
   
-  it "に :reflist のフィールドに対して :model で指定したclassのオブジェクトのリストを代入するとき、代入前後の差分となるオブジェクトに対して無くなる方は #released がそれぞれ呼ばれ、追加される方は #retained がそれぞれ呼ばれること"
-
-  it "に :reflist のvalidationで :strict がセットされていないとき、実際には存在しないoidのオブジェクトを含むリストを代入しても例外が発生しないこと" do
-    td = TestData.new
-    lambda {td.testex2s_by_id = [9919, 9929, 19929]}.should_not raise_exception(Stratum::FieldValidationError)
-  end
-  
-  it "に :reflist のvalidationで :strict => true がセットされているとき、 実際には存在しないoidのオブジェクトを含むリストを代入したときに例外が発生すること" do
-    td = TestData.new
-    lambda {td.testex1s_by_id = [9919, 9929, 19929]}.should raise_exception(Stratum::FieldValidationError)
-
-    tex11 = TestEX1.new
-    tex11.name = "hoge9919"
-    tex11.save
-    tex12 = TestEX1.new
-    tex12.name = "hoge9929"
-    tex12.save
-    tex13 = TestEX1.new
-    tex13.name = "hoge19929"
-    tex13.save
-    lambda {td.testex1s_by_id = [tex11.oid, tex12.oid, tex13.oid]}.should_not raise_exception(Stratum::FieldValidationError)
-  end
-  
   it "に :reflist のvalidationで :empty の値が :ok/allowed の場合にのみ空リストもしくはnilの代入を許し、内部状態が空リストにセットされること" do
     td = TestData.new
     lambda {td.testex1s = nil}.should raise_exception(Stratum::FieldValidationError)
@@ -1077,7 +1037,7 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.sqlvalue(:testex2s).should eql('5,6,8,9')
   end
 
-  it "に #retained(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist すべてに obj がセット/挿入され、事前に #saved? == true の場合には更に #save されること" do
+  it "に #retained(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist のうち manualmaint 指定されていないものすべてに obj がセット/挿入され、事前に #saved? == true の場合には更に #save されること" do
     td1 = TestData.new
     td1.save
     td2 = TestData.new
@@ -1155,15 +1115,19 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     ex2a.saved?.should be_true
     ex2a.id.should eql(twice_pre_id)
 
-    # 複数のフィールドに対して実行されること
+    # 複数のフィールドに対して実行され、ただし manualmaint 指定のものには入っていないこと
     ex = TestEX1.new
     ex.save
+    ex2 = TestEX2.new
+    ex2.save
     
     td1.saved?.should be_true
     td1.testex1.should be_nil
     td1.testex2.should be_nil
     td1.testex1s.should eql([])
     td1.testex2s.should eql([])
+    td1.ex1_ex_by_id.should be_nil
+    td1.ex2s_ex_by_id.should eql([])
     pre_id = td1.id
     
     td1.retained(ex)
@@ -1172,9 +1136,18 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.testex2_by_id.should be_nil
     td1.testex1s_by_id.should eql([ex.oid])
     td1.testex2s_by_id.should eql([])
+    td1.ex1_ex_by_id.should be_nil
+    td1.ex2s_ex_by_id.should eql([])
+
     td1.id.should_not eql(pre_id)
+
+    td1.retained(ex2)
+    td1.saved?.should be_true
+    td1.testex2_by_id.should_not be_nil
+    td1.testex2s_by_id.should_not eql([])
+    td1.ex2s_ex_by_id.should eql([])
   end
-  it "に #released(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist すべてから obj が除去され、事前に #saved? == true の場合には更に #save されること" do
+  it "に #released(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist のうち manualmaint 指定されていないフィールドすべてから obj が除去され、事前に #saved? == true の場合には更に #save されること" do
     td1 = TestData.new
     td1.save
     td2 = TestData.new
@@ -1261,7 +1234,7 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     ex2a.datas_by_id.should eql([])
     ex2a.saved?.should be_true
 
-    # 複数のフィールドに対して実行されること
+    # manualmaint 指定されていない複数のフィールドに対して実行されること
     ex1a = TestEX1.new
     ex1b = TestEX1.new
     ex1c = TestEX1.new
@@ -1279,6 +1252,8 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.testex2 = ex2b
     td1.testex1s = [ex1c, ex1b, ex1a]
     td1.testex2s = [ex2c, ex2b, ex2a]
+    td1.ex1_ex = ex1b
+    td1.ex2s_ex = [ex2a, ex2c]
     td1.save
 
     td1.saved?.should be_true
@@ -1286,6 +1261,8 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.testex2_by_id.should eql(ex2b.oid)
     td1.testex1s_by_id.should eql([ex1c.oid, ex1b.oid, ex1a.oid])
     td1.testex2s_by_id.should eql([ex2c.oid, ex2b.oid, ex2a.oid])
+    td1.ex1_ex_by_id.should eql(ex1b.oid)
+    td1.ex2s_ex_by_id.should eql([ex2a.oid, ex2c.oid])
     pre_id = td1.id
     
     td1.released(ex1b)
@@ -1294,6 +1271,8 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.testex2_by_id.should eql(ex2b.oid)
     td1.testex1s_by_id.should eql([ex1c.oid, ex1a.oid])
     td1.testex2s_by_id.should eql([ex2c.oid, ex2b.oid, ex2a.oid])
+    td1.ex1_ex_by_id.should eql(ex1b.oid)
+    td1.ex2s_ex_by_id.should eql([ex2a.oid, ex2c.oid])
     td1.id.should_not eql(pre_id)
     
     pre_id = td1.id
@@ -1304,6 +1283,8 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.testex2_by_id.should eql(ex2b.oid)
     td1.testex1s_by_id.should eql([ex1c.oid, ex1a.oid])
     td1.testex2s_by_id.should eql([ex2b.oid, ex2a.oid])
+    td1.ex1_ex_by_id.should eql(ex1b.oid)
+    td1.ex2s_ex_by_id.should eql([ex2a.oid, ex2c.oid])
     td1.id.should_not eql(pre_id)
   end
 
@@ -1312,18 +1293,80 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.save
 
     x1a = TestEX1.new
-    x1a.name = "x1a"
-    x1a.save
+    x1a.instance_eval { def retained(obj); raise RuntimeError ; end }
+    x1b = TestEX1.new
 
-    x1a.data.should be_nil
+    x2a = TestEX2.new
+    x2b = TestEX2.new
+    x2b.instance_eval { def retained(obj); raise RuntimeError ; end }
+
+    lambda {td.testex1 = x1a}.should raise_exception(RuntimeError)
+    lambda {td.testex1s = x1a}.should raise_exception(RuntimeError)
+    lambda {td.testex1s = [x1a]}.should raise_exception(RuntimeError)
+    lambda {td.testex1s = [x1b,x1a]}.should raise_exception(RuntimeError)
+    lambda {td.testex1s = [x1b]}.should_not raise_exception(RuntimeError)
+    lambda {td.ex1_ex = x1a}.should raise_exception(RuntimeError)
+    lambda {td.ex2s_ex = [x2a,x2b]}.should raise_exception(RuntimeError)
+  end
+
+  it "に :ref/:reflist のフィールドから除外されるオブジェクトのうち #saved? == true なものに対しては透過的に #released(receiver) が呼ばれること" do
+    td = TestData.new
+    td.save
+
+    x1a = TestEX1.new
+    x1b = TestEX1.new
+    x2a = TestEX2.new
+    x2b = TestEX2.new
 
     td.testex1 = x1a
+    td.testex1s = [x1b, x1a]
+    x1a.data_by_id.should eql(td.oid)
+    x1b.data_by_id.should eql(td.oid)
+    td.ex1_ex = x1a
+    td.ex2s_ex = [x2a, x2b]
+    x2a.datas_by_id.should include(td.oid)
+    x2b.datas_by_id.should include(td.oid)
 
-    # x1a.data_
-    
+    x1a.save
+    x1b.save
+    x2a.save
+    x2b.save
+
+    td.testex1 = nil
+    TestEX1.get(x1a.oid).data_by_id.should be_nil
+    td.testex1s = [x1b]
+    TestEX1.get(x1a.oid).data_by_id.should be_nil
+    TestEX1.get(x1b.oid).data_by_id.should eql(td.oid)
+
+    td.ex2s_ex = []
+    TestEX2.get(x2a.oid).datas_by_id.should_not include(td.oid)
+    TestEX2.get(x2b.oid).datas_by_id.should_not include(td.oid)
   end
-  it "に :ref/:reflist のフィールドから除外されるオブジェクトのうち #saved? == true なものに対しては透過的に #released(receiver) が呼ばれること"
-  it "に :reflist のフィールドへの代入操作において代入前後でともにセットされたオブジェクトに対しては #retained/#released が呼ばれないこと"
+
+  it "に :reflist のフィールドへの代入操作において代入前後でともにセットされたオブジェクトに対しては #retained/#released が呼ばれないこと" do
+    td = TestData.new
+    td.save
+
+    x1a = TestEX1.new
+    x1b = TestEX1.new
+    x2a = TestEX2.new
+    x2b = TestEX2.new
+
+    td.testex1s = [x1b, x1a]
+    td.testex2s = [x2a, x2b]
+
+    x1a.save
+    x1b.save
+    x2a.save
+    x2b.save
+
+    td.testex1s = x1b
+    TestEX1.get(x1a.oid).data_by_id.should be_nil
+    TestEX1.get(x1b.oid).data_by_id.should eql(td.oid)
+    td.testex2s = [x2a]
+    TestEX2.get(x2a.oid).datas_by_id.should include(td.oid)
+    TestEX2.get(x2b.oid).datas_by_id.should_not include(td.oid)
+  end
 
 end
 

@@ -286,7 +286,7 @@ module Stratum
         unless fdef[:model]
           raise InvalidFieldDefinition, "missing one or both of :column and :model for :ref/:reflist field #{fname}"
         end
-        unknowns = fdef.keys - [:datatype, :model, :strict, :empty] # ref don't have default
+        unknowns = fdef.keys - [:datatype, :model, :manualmaint, :empty] # ref don't have default
         if unknowns.size > 0
           raise InvalidFieldDefinition, "Unknown field options #{unknowns.join(',')}"
         end
@@ -535,9 +535,6 @@ module Stratum
         unless value.is_a?(Integer) or (value.is_a?(String) and value.to_i.to_s == value)
           raise FieldValidationError.new("field #{fname} accepts ref_oid(Integer) but #{value.class.name}", self.class, fname)
         end
-        if fdef[:strict]
-          raise FieldValidationError.new("field #{fname} gets invalid oid (object not found)", self.class, fname) unless eval(fdef[:model]).get(id)
-        end
       end
       
       self.prepare_to_update
@@ -548,6 +545,8 @@ module Stratum
     def write_field_ref(fname, value)
       fdef = self.class.definition(fname)
       
+      pre_oid = self.read_field_ref_by_id(fname)
+
       id = if value.is_a?(eval(fdef[:model]))
              value.oid
            elsif value.nil?
@@ -555,7 +554,20 @@ module Stratum
            else
              raise FieldValidationError.new("field #{fname} accepts model object #{fdef[:model]} or its oid, but #{value.class.name}", self.class, fname)
            end
+
+      pre_value = if pre_oid and pre_oid != id
+                    self.read_field_ref(fname)
+                  else
+                    nil
+                  end
+
       self.write_field_ref_by_id(fname, id)
+
+      if pre_oid != id
+        pre_value.released(self) if pre_value
+        value.retained(self) if value
+      end
+
       value
     end
 
@@ -598,12 +610,6 @@ module Stratum
              end
         ids.push(id)
       end
-      if fdef[:strict]
-        objs = [eval(fdef[:model]).get(*ids)].flatten
-        if objs.size != ids.size
-          raise FieldValidationError.new("field #{fname} gets invalid oid (object not found)", self.class, fname)
-        end
-      end
 
       self.prepare_to_update
       @values[self.class.column_by(fname)] = ids
@@ -616,23 +622,38 @@ module Stratum
       
       unless value.is_a?(Array) or value.is_a?(cls)
         if value.nil? and fdef[:empty]
+          pre_values = self.read_field_reflist(fname)
           self.write_field_reflist_by_id(fname, value)
+          pre_values.each {|v| v.released(self)}
           return value
         end
         raise FieldValidationError.new("field #{fname} accepts list of model (or nil, if :empty => :ok), but #{value.class.name}", self.class, fname)
       end
 
+      pre_values = self.read_field_reflist(fname)
       values = if value.is_a?(Array)
                  value
                else
                  [value]
                end
       ids = []
+      released_objs = pre_values.dup
+      retained_objs = []
       for v in values
         raise FieldValidationError.new("field #{fname} accepts list of #{fdef[:model]}, but #{v.class.name}", self.class, fname) unless v.is_a?(cls)
         ids.push(v.oid)
+        if pre_values.map(&:oid).include?(v.oid)
+          released_objs.delete_if {|x| x.oid == v.oid}
+        else
+          retained_objs.push(v)
+        end
       end
+
       self.write_field_reflist_by_id(fname, ids)
+
+      released_objs.each {|v| v.released(self)}
+      retained_objs.each {|v| v.retained(self)}
+
       value
     end
 
@@ -958,6 +979,8 @@ module Stratum
     def retained(obj)
       state_saved = self.saved?
       self.class.ref_fields_of(obj.class).each do |f|
+        next if self.class.definition(f)[:manualmaint]
+
         f_by_id = f.to_s + '_by_id'
         getter = f_by_id.to_sym
         setter = (f_by_id + '=').to_sym
@@ -978,6 +1001,8 @@ module Stratum
     def released(obj)
       state_saved = self.saved?
       self.class.ref_fields_of(obj.class).each do |f|
+        next if self.class.definition(f)[:manualmaint]
+
         f_by_id = f.to_s + '_by_id'
         getter = f_by_id.to_sym
         setter = (f_by_id + '=').to_sym
