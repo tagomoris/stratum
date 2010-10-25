@@ -630,6 +630,7 @@ module Stratum
         raise FieldValidationError.new("field #{fname} accepts list of model (or nil, if :empty => :ok), but #{value.class.name}", self.class, fname)
       end
 
+      pre_ids = self.read_field_reflist_by_id(fname)
       pre_values = self.read_field_reflist(fname)
       values = if value.is_a?(Array)
                  value
@@ -637,12 +638,13 @@ module Stratum
                  [value]
                end
       ids = []
-      released_objs = pre_values.dup
+      released_objs = pre_values
       retained_objs = []
+
       for v in values
         raise FieldValidationError.new("field #{fname} accepts list of #{fdef[:model]}, but #{v.class.name}", self.class, fname) unless v.is_a?(cls)
         ids.push(v.oid)
-        if pre_values.map(&:oid).include?(v.oid)
+        if pre_ids.include?(v.oid)
           released_objs.delete_if {|x| x.oid == v.oid}
         else
           retained_objs.push(v)
