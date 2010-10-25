@@ -869,7 +869,7 @@ module Stratum
         for k in opts.keys
           obj.write_field(k, opts[k])
         end
-        return obj.insert()
+        return obj.save
       end
     end
     
