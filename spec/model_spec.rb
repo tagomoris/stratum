@@ -1295,6 +1295,7 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     x1a = TestEX1.new
     x1a.instance_eval { def retained(obj); raise RuntimeError ; end }
     x1b = TestEX1.new
+    x1b.instance_eval { def retained(obj); raise RuntimeError ; end }
 
     x2a = TestEX2.new
     x2b = TestEX2.new
@@ -1302,7 +1303,6 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
     lambda {td.testex1 = x1a}.should raise_exception(RuntimeError)
     lambda {td.testex1s = x1a}.should raise_exception(RuntimeError)
-    lambda {td.testex1s = [x1a]}.should raise_exception(RuntimeError)
     lambda {td.testex1s = [x1b,x1a]}.should raise_exception(RuntimeError)
     lambda {td.testex1s = [x1b]}.should_not raise_exception(RuntimeError)
     lambda {td.ex1_ex = x1a}.should raise_exception(RuntimeError)

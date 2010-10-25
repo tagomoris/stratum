@@ -582,7 +582,11 @@ module Stratum
 
       cls = eval(self.class.definition(fname)[:model])
       set = cls.get(ids, :before => @timeslice)
-      ids.map{|i| set.select{|o| o.oid == i}}.flatten
+      ret = Array.new(ids.size)
+      ids.each_index do |i|
+        ret[i] = set.select{|o| o.oid == ids[i]}.first
+      end
+      ret.compact
     end
 
     def write_field_reflist_by_id(fname, value)
