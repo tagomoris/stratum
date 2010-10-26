@@ -470,7 +470,7 @@ module Stratum
     end
 
     def read_field_stringlist(fname)
-      @values[self.class.column_by(fname)]
+      @values[self.class.column_by(fname)] or []
     end
 
     def write_field_stringlist(fname, value)
@@ -497,7 +497,7 @@ module Stratum
     end
 
     def read_field_taglist(fname)
-      @values[self.class.column_by(fname)]
+      @values[self.class.column_by(fname)] or []
     end
 
     def write_field_taglist(fname, value)
@@ -572,8 +572,7 @@ module Stratum
     end
 
     def read_field_reflist_by_id(fname)
-      return [] if @values[self.class.column_by(fname)].nil?
-      @values[self.class.column_by(fname)]
+      @values[self.class.column_by(fname)] or []
     end
 
     def read_field_reflist(fname)
