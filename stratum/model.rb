@@ -775,7 +775,9 @@ module Stratum
       result
     end
 
-    def self.all
+    def self.all(opts={})
+      opts[:sorted] ||= false
+      
       fieldnames = self.columns.join(',')
       sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE head=? AND removed=?"
 
@@ -787,6 +789,9 @@ module Stratum
           result.push(self.new(pairs))
         end
         st.free_result
+      end
+      if opts[:sorted]
+        result.sort!
       end
       result
     end
