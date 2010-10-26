@@ -775,6 +775,22 @@ module Stratum
       result
     end
 
+    def self.all
+      fieldnames = self.columns.join(',')
+      sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE head=? AND removed=?"
+
+      result = []
+      Stratum.conn do |conn|
+        st = conn.prepare(sql)
+        st.execute(BOOL_TRUE, BOOL_FALSE)
+        while pairs = st.fetch_hash
+          result.push(self.new(pairs))
+        end
+        st.free_result
+      end
+      result
+    end
+
     def self.getlist(key_field)
       unless key_field.is_a?(Symbol) or key_field.is_a?(String)
         raise ArgumentError, "invalid argument type #{key_field.class}"
