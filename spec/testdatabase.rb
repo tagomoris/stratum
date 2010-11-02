@@ -102,7 +102,7 @@ EOSQL
 CREATE TABLE testtags (
 id          INT PRIMARY KEY NOT NULL AUTO_INCREMENT,
 oid         INT             NOT NULL,
-tags        TEXT            NOT NULL,
+tags        TEXT            ,
 inserted_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
 operated_by INT             NOT NULL,
 head        ENUM('0','1')   NOT NULL DEFAULT '1',

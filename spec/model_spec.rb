@@ -2275,6 +2275,19 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.map(&:oid).sort.should eql([tdoid1, tdoid2, tdoid3])
   end
   
+  it "に :string のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    tdoidx = 90101
+    tdoidy = 90102
+    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidx},string4=NULL,head='1',removed='0',#{vals}")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidy},string4='a',head='1',removed='0',#{vals}")
+    ary = TestData.query(:text => nil)
+    ary.should be_instance_of(Array)
+    ary.size.should eql(1)
+    ary.map(&:oid).sort.should eql([tdoidx])
+  end
+
   it "に :string のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがひとつの場合、1要素の配列で返ること" do
     tdoid1 = 10347
     tdoid2 = 10348
@@ -2400,6 +2413,22 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary2.size.should eql(3)
   end
 
+  it "に :stringlist のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
+    tdoidx = 90201
+    tdoidy = 90202
+    tdoidz = 90203
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    list2val = "HOGE\tPOS\tLABEL1"
+    vals = "flag2='0',string1='hoge',string3='three',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidx},head='1',removed='0',#{vals},list3=NULL")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidy},head='1',removed='0',#{vals},list3='2'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidz},head='1',removed='0',#{vals},list3=''")
+    
+    ary1 = TestData.query(:list3 => nil)
+    ary1.size.should eql(2)
+    ary1.map(&:oid).sort.should eql([tdoidx, tdoidz])
+  end
+
   it "に :stringlist および :force_all => true を条件に .query し、条件に該当するオブジェクトがすべて格納された配列で返ること" do
     tdoid1 = 10404
     tdoid2 = 10405
@@ -2473,6 +2502,22 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     TestTag.query(:tags => 'DB').size.should eql(2)
   end
 
+  it "に :taglist のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
+    @conn.query("DELETE FROM #{TestTag.tablename}")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9911,tags=''")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9912,tags=NULL")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9913,tags='HOGE POS 20100824-15:18 blog-new DB'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9914,tags='HOGE POS 20100825-15:18 m.blog-new AP'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9915,tags=NULL")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9916,tags='HOGE POS 20100825-15:18 m.search Web'")
+
+    ary = TestTag.query(:tags => nil)
+    ary.should_not be_nil
+    ary.should be_instance_of(Array)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([9911,9912,9915])
+  end
+
   it "に :ref のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
@@ -2501,6 +2546,27 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.should be_instance_of(Array)
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([tdoid1, tdoid2])
+  end
+
+  it "に :ref のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    @conn.query("DELETE FROM #{TestEX1.tablename}")
+
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=90301,name='hoge1',operated_by=1")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=90303,name='hoge3',operated_by=1")
+    
+    vals = "flag2='0',string1='hoge',string3='three',list2='blank',operated_by=1"
+    tdoid1 = 90311
+    tdoid2 = 90312
+    tdoid3 = 90313
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid1},removed='0',#{vals},ref_oid=90301")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid2},removed='0',#{vals},ref_oid=NULL")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid3},removed='0',#{vals},ref_oid=90303")
+    
+    ary = TestData.query(:testex1 => nil)
+    ary.should be_instance_of(Array)
+    ary.size.should eql(1)
+    ary.map(&:oid).sort.should eql([tdoid2])
   end
 
   it "に :ref および :force_all => true を条件に .query し、条件に該当するオブジェクトがすべて格納された配列で返ること" do
@@ -2619,6 +2685,30 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.map(&:oid).sort.should eql([tdoid1, tdoid3])
   end
   
+  it "に :reflist のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    @conn.query("DELETE FROM #{TestEX2.tablename}")
+
+    @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=90401,name='hoge1',operated_by=1")
+    @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=90402,name='hoge2',operated_by=1")
+    @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=90403,name='hoge3',operated_by=1")
+    
+    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=9401,operated_by=1"
+    tdoid1 = 90411
+    tdoid2 = 90412
+    tdoid3 = 90413
+    tdoid4 = 90414
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid1},removed='0',#{vals},testex2s=NULL")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid2},removed='0',#{vals},testex2s='7012,7013'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid3},removed='0',#{vals},testex2s=NULL")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid4},removed='1',#{vals},testex2s='7011,7012'")
+    
+    ary = TestData.query(:testex2s => nil)
+    ary.should be_instance_of(Array)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1, tdoid3])
+  end
+
   it "に :reflist および :force_all => true を条件に .query し、条件に該当するオブジェクトがすべて格納された配列で返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX2.tablename}")
@@ -2769,7 +2859,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.map(&:oid).sort.should eql([7111])
   end
 
-  it "に、複数の適当な条件を組み合わせて .query を行って、その結果が各条件で個別に .query した結果の積になっていること" do
+  it "に、複数の適当な条件を組み合わせて .query を行って、その結果が各条件で個別に .query した結果の積になっていること、また :count => true の結果と件数が同じであること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("DELETE FROM #{TestEX2.tablename}")
@@ -2796,42 +2886,49 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     aryB = TestData.query(:flag2 => false).map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
+    TestData.query(:flag1 => true, :flag2 => false, :count => true).should eql(ary1.size)
     
     ary1 = TestData.query(:flag1 => false, :flag2 => false).map(&:oid)
     aryA = TestData.query(:flag1 => false).map(&:oid)
     aryB = TestData.query(:flag2 => false).map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
+    TestData.query(:flag1 => false, :flag2 => false, :count => true).should eql(ary1.size)
 
     ary1 = TestData.query(:flag1 => true, :string1 => 'HOGEPOS').map(&:oid)
     aryA = TestData.query(:flag1 => true).map(&:oid)
     aryB = TestData.query(:string1 => 'HOGEPOS').map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
+    TestData.query(:flag1 => true, :string1 => 'HOGEPOS', :count => true).should eql(ary1.size)
 
     ary1 = TestData.query(:string1 => 'HOGEPOS', :string2 => 'OPT2').map(&:oid)
     aryA = TestData.query(:string1 => 'HOGEPOS').map(&:oid)
     aryB = TestData.query(:string2 => 'OPT2').map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
+    TestData.query(:string1 => 'HOGEPOS', :string2 => 'OPT2', :count => true).should eql(ary1.size)
 
     ary1 = TestData.query(:string2 => 'OPT1', :testex1 => ex1a).map(&:oid)
     aryA = TestData.query(:string2 => 'OPT1').map(&:oid)
     aryB = TestData.query(:testex1 => ex1a).map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
+    TestData.query(:string2 => 'OPT1', :testex1 => ex1a, :count => true).should eql(ary1.size)
     
     ary1 = TestData.query(:testex1 => ex1b, :flag1 => true).map(&:oid)
     aryA = TestData.query(:testex1 => ex1b).map(&:oid)
     aryB = TestData.query(:flag1 => true).map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
+    TestData.query(:testex1 => ex1b, :flag1 => true, :count => true).should eql(ary1.size)
     
     ary1 = TestData.query(:testex1 => ex1a, :testex2s => [ex2a.oid, ex2b.oid]).map(&:oid)
     aryA = TestData.query(:testex1 => ex1a).map(&:oid)
     aryB = TestData.query(:testex2s => [ex2a, ex2b]).map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
+    TestData.query(:testex1 => ex1a, :testex2s => [ex2a.oid, ex2b.oid], :count => true).should eql(ary1.size)
 
     ary1 = TestData.query(:flag1 => true, :flag2 => false, :string1 => 'HOGEPOS', :testex2s => [ex2a]).map(&:oid)
     aryA = TestData.query(:flag1 => true).map(&:oid)
@@ -2840,6 +2937,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     aryD = TestData.query(:testex2s => [ex2a]).map(&:oid)
     ary2 = aryA & aryB & aryC & aryD
     ary2.should eql(ary1)
+    TestData.query(:flag1 => true, :flag2 => false, :string1 => 'HOGEPOS', :testex2s => [ex2a], :count => true).should eql(ary1.size)
   end
 
   it "に、単一の適当な条件で .query_or_create を行って、複数のオブジェクトが該当する場合に例外が発生すること" do
@@ -2908,4 +3006,3 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   
   # tag
 end
-

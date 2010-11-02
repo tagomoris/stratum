@@ -817,68 +817,105 @@ module Stratum
 
       unique = opts.delete(:unique)
       force_all = opts.delete(:force_all)
+      count = opts.delete(:count)
 
       fieldnames = self.columns.join(',')
       conds = []
       vals = []
-      for k in opts.keys
-        v = opts[k]
-        cond = self.column_by(k)
+      opts.each do |k,v|
+        colname = self.column_by(k)
         ftype = self.datatype(k)
         value = case ftype
                 when :bool
                   v ? BOOL_TRUE : BOOL_FALSE
                 when :string
-                  if self.definition(k)[:normalizer]
+                  if v.nil?
+                    nil
+                  elsif self.definition(k)[:normalizer]
                     self.send(self.definition(k)[:normalizer], v.encode('utf-8'))
                   else
                     v.encode('utf-8')
                   end
                 when :stringlist
-                  [v].flatten.join(self.definition(k)[:separator])
+                  if v.nil?
+                    nil
+                  else
+                    [v].flatten.join(self.definition(k)[:separator])
+                  end
                 when :taglist
                   if v.instance_of?(Array)
                     v.map{|s| '+' + s}.join(' ')
+                  elsif v.nil?
+                    nil
                   else
                     v.to_s
                   end
                 when :ref
-                  v.is_a?(Stratum::Model) ? v.oid : v.to_i
+                  if v.nil?
+                    nil
+                  else
+                    v.is_a?(Stratum::Model) ? v.oid : v.to_i
+                  end
                 when :reflist
-                  [v].flatten.map{|e| e.is_a?(Stratum::Model) ? e.oid.to_s : e.to_i.to_s}.join(REFLIST_SEPARATOR)
+                  if v.nil?
+                    nil
+                  else
+                    [v].flatten.map{|e| e.is_a?(Stratum::Model) ? e.oid.to_s : e.to_i.to_s}.join(REFLIST_SEPARATOR)
+                  end
                 when :reserved
                   nil
                 end
-        next if value.nil?
         if ftype == :taglist
-          conds.push("MATCH(#{cond}) AGAINST(? IN BOOLEAN MODE)")
+          if value.nil?
+            conds.push("(#{colname} IS NULL OR #{colname}='')")
+          else
+            conds.push("MATCH(#{colname}) AGAINST(? IN BOOLEAN MODE)")
+            vals.push(value)
+          end
         else
-          conds.push("#{cond}=?")
+          if value.nil?
+            conds.push("(#{colname} IS NULL OR #{colname}='')")
+          else
+            conds.push("#{colname}=?")
+            vals.push(value)
+          end
         end
-        vals.push(value)
       end
       cond = conds.join(' AND ')
 
       removed_cond = force_all ? "" : " AND removed=?"
-      sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond}) AND head=?#{removed_cond}"
+      sql = if count
+              "SELECT count(*) FROM #{self.tablename} WHERE (#{cond}) AND head=?#{removed_cond}"
+            else
+              "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond}) AND head=?#{removed_cond}"
+            end
 
       vals.push(BOOL_TRUE)
       vals.push(BOOL_FALSE) unless force_all
 
       result = []
-      Stratum.conn do |conn|
-        st = conn.prepare(sql)
-        st.execute(*vals)
-
-        while pairs = st.fetch_hash
-          result.push(self.new(pairs))
+      if count
+        Stratum.conn do |conn|
+          st = conn.prepare(sql)
+          st.execute(*vals)
+          result = st.fetch.first
+          st.free_result
         end
-        st.free_result
-      end
+      else
+        Stratum.conn do |conn|
+          st = conn.prepare(sql)
+          st.execute(*vals)
 
-      if unique
-        raise NotUniqueResultError, "unique expected query returned results: #{result.size.to_s}" if result.size > 1
-        return result[0]
+          while pairs = st.fetch_hash
+            result.push(self.new(pairs))
+          end
+          st.free_result
+        end
+
+        if unique
+          raise NotUniqueResultError, "unique expected query returned results: #{result.size.to_s}" if result.size > 1
+          return result[0]
+        end
       end
       result
     end

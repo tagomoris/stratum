@@ -53,5 +53,5 @@ end
 
 class TestTag < Stratum::Model
   table :testtags
-  field :tags, :taglist
+  field :tags, :taglist, :empty => :ok
 end
