@@ -818,6 +818,16 @@ module Stratum
       unique = opts.delete(:unique)
       force_all = opts.delete(:force_all)
       count = opts.delete(:count)
+      if count
+        raise ArgumentError, 'invalid option specification both :count and :unique' if unique
+      end
+      selector = opts.delete(:select)
+      if selector
+        raise ArgumentError, ':selector option accepts only :first/:last' unless [:first,:last].include?(selector)
+        raise ArgumentError, 'invalid option specification both :unique and :select' if unique
+        raise ArgumentError, 'invalid option specification both :count and :select' if count
+        force_all = true
+      end
 
       fieldnames = self.columns.join(',')
       conds = []
@@ -883,14 +893,15 @@ module Stratum
       end
       cond = conds.join(' AND ')
 
-      removed_cond = force_all ? "" : " AND removed=?"
+      head_cond = selector ? "" : "AND head=?"
+      removed_cond = force_all ? "" : "AND removed=?" # if selector setted, force_all is always true
       sql = if count
-              "SELECT count(*) FROM #{self.tablename} WHERE (#{cond}) AND head=?#{removed_cond}"
+              "SELECT count(*) FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
             else
-              "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond}) AND head=?#{removed_cond}"
+              "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
             end
 
-      vals.push(BOOL_TRUE)
+      vals.push(BOOL_TRUE) unless selector
       vals.push(BOOL_FALSE) unless force_all
 
       result = []
@@ -901,6 +912,25 @@ module Stratum
           result = st.fetch.first
           st.free_result
         end
+      elsif selector
+        result_set = {}
+        Stratum.conn do |conn|
+          st = conn.prepare(sql)
+          st.execute(*vals)
+
+          while pairs = st.fetch_hash
+            obj = self.new(pairs)
+            if result_set[obj.oid]
+              if (selector == :first and result_set[obj.oid].id > obj.id) or (selector == :last and result_set[obj.oid].id < obj.id)
+                result_set[obj.oid] = obj
+              end
+            else
+              result_set[obj.oid] = obj
+            end
+          end
+          st.free_result
+        end
+        result = result_set.values
       else
         Stratum.conn do |conn|
           st = conn.prepare(sql)

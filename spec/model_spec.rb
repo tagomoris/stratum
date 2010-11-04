@@ -2246,6 +2246,45 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     td.oid.should eql(tdoid3)
   end
 
+  it "に :bool および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do
+    tdoid1 = 10337
+    tdoid2 = 10338
+    tdoid3 = 10339
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    vals = "string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103371,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},flag2='0'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103372,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},flag2='0'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103373,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},flag2='1'")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103374,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},flag2='0'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103375,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},flag2='1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103376,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},flag2='1'")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103377,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},flag2='1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103378,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},flag2='1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103379,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},flag2='1'")
+
+    ary = TestData.query(:flag2 => false, :select => :first)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2])
+    ary.sort_by(&:oid).map(&:id).should eql([103371,103372])
+
+    ary = TestData.query(:flag2 => false, :select => :last)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2])
+    ary.sort_by(&:oid).map(&:id).should eql([103374,103372])
+    
+    ary = TestData.query(:flag2 => true, :select => :first)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103377,103375,103373])
+
+    ary = TestData.query(:flag2 => true, :select => :last)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103377,103378,103379])
+  end
+
   it "に :string のみを条件に .query し、条件に該当するオブジェクトが存在しない場合、空配列が返ること" do
     tdoid1 = 10341
     tdoid2 = 10342
@@ -2394,6 +2433,45 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary3.first.string5.should eql("feJoAnx")
   end
 
+  it "に :string および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do 
+    tdoid1 = 10368
+    tdoid2 = 10369
+    tdoid3 = 10370
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    vals = "flag2='0',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103681,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals}")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103682,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string1='HOGE'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103683,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals}")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103684,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string1='HOGE'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103685,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string1='HOGE'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103686,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},string1=''")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103687,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},string1='HOGE'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103688,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},string1='HOGE'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103689,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},string1='HOGE'")
+
+    ary = TestData.query(:string1 => nil, :select => :first)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103681,103683])
+
+    ary = TestData.query(:string1 => 'HOGE', :select => :first)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103684,103682,103689])
+
+    ary = TestData.query(:string1 => nil, :select => :last)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103681,103686])
+    
+    ary = TestData.query(:string1 => 'HOGE', :select => :last)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103687,103688,103689])
+  end
+
   it "に :stringlist のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
     tdoid1 = 10401
     tdoid2 = 10402
@@ -2480,6 +2558,46 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary1.oid.should eql(tdoid1)
   end
 
+  it "に :stringlist および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し id 順で最初/最後のものが返ること" do 
+    tdoid1 = 10414
+    tdoid2 = 10415
+    tdoid3 = 10416
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    vals = "flag2='0',string1='HOGE',string3='three',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    hitlist = "HOGE\tPOS"
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104141,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104142,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals}")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104143,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},list2='#{hitlist}'")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104144,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},list2='HOGE'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104145,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},list2='#{hitlist}'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104146,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},list2=''")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104147,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},list2='#{hitlist}'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104148,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104149,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},list2='#{hitlist}'")
+
+    ary = TestData.query(:list2 => nil, :select => :first)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([104141,104142,104146])
+
+    ary = TestData.query(:list2 => ['HOGE', 'POS'], :select => :first)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([104147,104145,104143])
+
+    ary = TestData.query(:list2 => nil, :select => :last)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([104141,104148,104146])
+    
+    ary = TestData.query(:list2 => ['HOGE','POS'], :select => :last)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([104147,104145,104149])
+  end
+
   it "に :taglist のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
     (@conn.query("SHOW VARIABLES LIKE 'ft_min_word_len'").fetch_hash['Value'].to_i <= 2).should be_true
 
@@ -2518,6 +2636,35 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.map(&:oid).sort.should eql([9911,9912,9915])
   end
 
+  it "に :taglist および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do 
+    tdoid1 = 19921
+    tdoid2 = 19922
+    tdoid3 = 19923
+    @conn.query("DELETE FROM #{TestTag.tablename}")
+
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199211,oid=#{tdoid1},tags='',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199212,oid=#{tdoid2},tags=NULL,head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199213,oid=#{tdoid3},tags='HOGE POS 20100824-15:18 blog-new DB',head='0'")
+
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199214,oid=#{tdoid1},tags='',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199215,oid=#{tdoid2},tags='POS MOGE',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199216,oid=#{tdoid3},tags='HOGE POS 20100824-15:18 blog-new DB',head='0'")
+
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199217,oid=#{tdoid1},tags='POS'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199218,oid=#{tdoid2},tags='POS MOGE'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199219,oid=#{tdoid3},tags='HOGE POS 20100824-15:18 blog-new DB',removed='1'")
+
+    ary = TestTag.query(:tags => 'POS', :select => :first)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([199217,199215,199213])
+    
+    ary = TestTag.query(:tags => 'POS', :select => :last)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([199217,199218,199219])
+  end
+  
   it "に :ref のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
@@ -2650,6 +2797,53 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary = TestData.query(:testex1 => ex1, :unique => true)
     ary.should be_instance_of(TestData)
     ary.oid.should eql(tdoid2)
+  end
+
+  it "に :ref および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do 
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    @conn.query("DELETE FROM #{TestEX1.tablename}")
+
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7001,name='hoge1',operated_by=1")
+    
+    tdoid1 = 21421
+    tdoid2 = 21422
+    tdoid3 = 21423
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    vals = "flag2='0',string1='HOGE',string3='three',list2='MOGE',testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214211,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},ref_oid=NULL")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214212,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals}")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214213,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},ref_oid=7001")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214214,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},ref_oid=7001")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214215,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals}")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214216,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},ref_oid=7001")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214217,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},ref_oid=7001")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214218,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},ref_oid=7001")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=214219,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},ref_oid=7001")
+
+    ex1 = TestEX1.get(7001)
+    ex1.should_not be_nil
+
+    ary = TestData.query(:testex1 => nil, :select => :first)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2])
+    ary.sort_by(&:oid).map(&:id).should eql([214211,214212])
+
+    ary = TestData.query(:testex1 => ex1, :select => :first)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([214214,214218,214213])
+
+    ary = TestData.query(:testex1 => nil, :select => :last)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2])
+    ary.sort_by(&:oid).map(&:id).should eql([214211,214215])
+    
+    ary = TestData.query(:testex1 => ex1, :select => :last)
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([214217,214218,214219])
   end
 
   it "に :reflist のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
@@ -2802,6 +2996,54 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.should_not be_nil
     ary.should be_instance_of(TestData)
     ary.oid.should eql(tdoid3)
+  end
+
+  it "に :reflist および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do 
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    @conn.query("DELETE FROM #{TestEX1.tablename}")
+
+    @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7011,name='hoge1',operated_by=1")
+    @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7012,name='hoge2',operated_by=1")
+    
+    tdoid1 = 22421
+    tdoid2 = 22422
+    tdoid3 = 22423
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    vals = "flag2='0',string1='HOGE',string3='three',list2='MOGE',ref_oid=7001,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224211,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals}")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224212,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},testex2s='7011'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224213,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},testex2s='7012'")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224214,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},testex2s='7011,7012'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224215,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},testex2s='7011'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224216,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals}")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224217,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='1',#{vals},testex2s='7011,7012'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224218,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},testex2s='7011'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=224219,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals},testex2s='7011,7012'")
+
+    ex2a = TestEX2.get(7011)
+    ex2b = TestEX2.get(7012)
+
+    ary = TestData.query(:testex2s => nil, :select => :first)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([224211,224216])
+
+    ary = TestData.query(:testex2s => [ex2a,ex2b], :select => :first)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([224214,224219])
+
+    ary = TestData.query(:testex2s => nil, :select => :last)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([224211,224216])
+    
+    ary = TestData.query(:testex2s => [ex2a,ex2b], :select => :last)
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([224217,224219])
   end
 
   it "に、複数の適当な条件を組み合わせて .query を行って、正常に結果が返ること" do
