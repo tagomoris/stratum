@@ -16,6 +16,24 @@ class Mysql
     def -(sec)
       self.addseconds(-1 * sec)
     end
+    def <=>(other)
+      self.to_i <=> other.to_i
+    end
+    def ==(other)
+      (self <=> other) == 0
+    end
+    def >(other)
+      (self <=> other) > 0
+    end
+    def >=(other)
+      (self <=> other) => 0
+    end
+    def <(other)
+      (self <=> other) < 0
+    end
+    def <=(other)
+      (self <=> other) <= 0
+    end
   end
 end
 
