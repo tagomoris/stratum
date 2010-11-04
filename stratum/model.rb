@@ -9,6 +9,13 @@ class Mysql
       x = t + sec
       return Mysql::Time.new(x.year, x.month, x.day, x.hour, x.min, x.sec)
     end
+
+    def +(sec)
+      self.addseconds(sec)
+    end
+    def -(sec)
+      self.addseconds(-1 * sec)
+    end
   end
 end
 
