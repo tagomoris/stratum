@@ -3182,6 +3182,87 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     TestData.query(:flag1 => true, :flag2 => false, :string1 => 'HOGEPOS', :testex2s => [ex2a], :count => true).should eql(ary1.size)
   end
 
+  it "に、複数の適当な条件を組み合わせて .query を行って、その結果が各条件で個別に .query した結果の積になっていること、また結果の map(&:oid) が :oidonly => true の結果と一致すること" do
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    @conn.query("DELETE FROM #{TestEX1.tablename}")
+    @conn.query("DELETE FROM #{TestEX2.tablename}")
+    
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7211,name='hoge1',operated_by=1")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7212,name='hoge2',operated_by=1")
+
+    @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7221,name='hogeA',operated_by=1")
+    @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7222,name='hogeB',operated_by=1")
+
+    ex1a = TestEX1.get(7211)
+    ex1b = TestEX1.get(7212)
+    ex2a = TestEX2.get(7221)
+    ex2b = TestEX2.get(7222)
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', ref_oid=7211, testex2s='7221'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7112,operated_by=1, flag1='0', flag2='0', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7222'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7113,operated_by=1, flag1='0', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7221,7222'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7114,operated_by=1, flag1='1', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7212, testex2s='7221'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7115,operated_by=1, flag1='1', flag2='0', string1='HOGE', string2='OPT3', ref_oid=7212, testex2s='7221,7222'")
+
+    ary1 = TestData.query(:flag1 => true, :flag2 => false).map(&:oid)
+    aryA = TestData.query(:flag1 => true).map(&:oid)
+    aryB = TestData.query(:flag2 => false).map(&:oid)
+    ary2 = aryA & aryB
+    ary2.should eql(ary1)
+    TestData.query(:flag1 => true, :flag2 => false, :oidonly => true).sort.should eql(ary2.sort)
+    
+    ary1 = TestData.query(:flag1 => false, :flag2 => false).map(&:oid)
+    aryA = TestData.query(:flag1 => false).map(&:oid)
+    aryB = TestData.query(:flag2 => false).map(&:oid)
+    ary2 = aryA & aryB
+    ary2.should eql(ary1)
+    TestData.query(:flag1 => false, :flag2 => false, :oidonly => true).sort.should eql(ary1.sort)
+
+    ary1 = TestData.query(:flag1 => true, :string1 => 'HOGEPOS').map(&:oid)
+    aryA = TestData.query(:flag1 => true).map(&:oid)
+    aryB = TestData.query(:string1 => 'HOGEPOS').map(&:oid)
+    ary2 = aryA & aryB
+    ary2.should eql(ary1)
+    TestData.query(:flag1 => true, :string1 => 'HOGEPOS', :oidonly => true).sort.should eql(ary1.sort)
+
+    ary1 = TestData.query(:string1 => 'HOGEPOS', :string2 => 'OPT2').map(&:oid)
+    aryA = TestData.query(:string1 => 'HOGEPOS').map(&:oid)
+    aryB = TestData.query(:string2 => 'OPT2').map(&:oid)
+    ary2 = aryA & aryB
+    ary2.should eql(ary1)
+    TestData.query(:string1 => 'HOGEPOS', :string2 => 'OPT2', :oidonly => true).sort.should eql(ary1.sort)
+
+    ary1 = TestData.query(:string2 => 'OPT1', :testex1 => ex1a).map(&:oid)
+    aryA = TestData.query(:string2 => 'OPT1').map(&:oid)
+    aryB = TestData.query(:testex1 => ex1a).map(&:oid)
+    ary2 = aryA & aryB
+    ary2.should eql(ary1)
+    TestData.query(:string2 => 'OPT1', :testex1 => ex1a, :oidonly => true).sort.should eql(ary1.sort)
+    
+    ary1 = TestData.query(:testex1 => ex1b, :flag1 => true).map(&:oid)
+    aryA = TestData.query(:testex1 => ex1b).map(&:oid)
+    aryB = TestData.query(:flag1 => true).map(&:oid)
+    ary2 = aryA & aryB
+    ary2.should eql(ary1)
+    TestData.query(:testex1 => ex1b, :flag1 => true, :oidonly => true).sort.should eql(ary1.sort)
+    
+    ary1 = TestData.query(:testex1 => ex1a, :testex2s => [ex2a.oid, ex2b.oid]).map(&:oid)
+    aryA = TestData.query(:testex1 => ex1a).map(&:oid)
+    aryB = TestData.query(:testex2s => [ex2a, ex2b]).map(&:oid)
+    ary2 = aryA & aryB
+    ary2.should eql(ary1)
+    TestData.query(:testex1 => ex1a, :testex2s => [ex2a.oid, ex2b.oid], :oidonly => true).sort.should eql(ary1.sort)
+
+    ary1 = TestData.query(:flag1 => true, :flag2 => false, :string1 => 'HOGEPOS', :testex2s => [ex2a]).map(&:oid)
+    aryA = TestData.query(:flag1 => true).map(&:oid)
+    aryB = TestData.query(:flag2 => false).map(&:oid)
+    aryC = TestData.query(:string1 => 'HOGEPOS').map(&:oid)
+    aryD = TestData.query(:testex2s => [ex2a]).map(&:oid)
+    ary2 = aryA & aryB & aryC & aryD
+    ary2.should eql(ary1)
+    TestData.query(:flag1 => true, :flag2 => false, :string1 => 'HOGEPOS', :testex2s => [ex2a], :oidonly => true).sort.should eql(ary1.sort)
+  end
+
   it "に、単一の適当な条件で .query_or_create を行って、複数のオブジェクトが該当する場合に例外が発生すること" do
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=8001,name='hoge1',operated_by=1")

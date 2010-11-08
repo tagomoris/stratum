@@ -843,8 +843,10 @@ module Stratum
       unique = opts.delete(:unique)
       force_all = opts.delete(:force_all)
       count = opts.delete(:count)
+      oidonly = opts.delete(:oidonly)
       if count
         raise ArgumentError, 'invalid option specification both :count and :unique' if unique
+        raise ArgumentError, 'invalid option specification both :count and :oidonly' if oidonly
       end
       selector = opts.delete(:select)
       if selector
@@ -923,7 +925,11 @@ module Stratum
       sql = if count
               "SELECT count(*) FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
             else
-              "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
+              if oidonly
+                "SELECT oid FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
+              else
+                "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
+              end
             end
 
       vals.push(BOOL_TRUE) unless selector
@@ -944,7 +950,7 @@ module Stratum
           st.execute(*vals)
 
           while pairs = st.fetch_hash
-            obj = self.new(pairs)
+            obj = oidonly ? pairs['oid'].to_i : self.new(pairs)
             if result_set[obj.oid]
               if (selector == :first and result_set[obj.oid].id > obj.id) or (selector == :last and result_set[obj.oid].id < obj.id)
                 result_set[obj.oid] = obj
@@ -961,8 +967,14 @@ module Stratum
           st = conn.prepare(sql)
           st.execute(*vals)
 
-          while pairs = st.fetch_hash
-            result.push(self.new(pairs))
+          if oidonly
+            while vals = st.fetch
+              result.push(vals.first.to_i)
+            end
+          else
+            while pairs = st.fetch_hash
+              result.push(self.new(pairs))
+            end
           end
           st.free_result
         end
