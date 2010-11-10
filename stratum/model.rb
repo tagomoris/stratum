@@ -777,6 +777,8 @@ module Stratum
     end
 
     def self.regex_match(opts={})
+      oidonly = opts.delete(:oidonly)
+
       raise ArgumentError, "regex_match accepts only one field=>regex pair" if opts.size != 1
 
       fname = (opts.keys)[0]
@@ -795,7 +797,7 @@ module Stratum
             oids.push(pair[0])
           end
         end
-        result = self.get(oids)
+        result = oidonly ? oids : self.get(oids)
       end
       result
     end
