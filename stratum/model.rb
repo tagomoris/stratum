@@ -750,7 +750,7 @@ module Stratum
           while pairs = st.fetch_hash
             obj = self.new(pairs, :before => opts[:before])
             models[obj.oid] = obj
-            if obj and not opts[:before]
+            if obj and not opts[:before] and not opts[:ignore_cache]
               ModelCache.set(obj)
             end
           end
