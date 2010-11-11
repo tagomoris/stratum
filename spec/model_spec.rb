@@ -1726,6 +1726,27 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     td.oid.should eql(@td.oid)
   end
   
+  it "に oid ひとつのみを引数に .get したときは何度実行してもキャッシュの効果で同じ object_id のものが返るが :ignore_cache => true の場合は異なること" do
+    @td.save()
+    ret = @conn.query("SELECT head,removed FROM #{TestData.tablename} WHERE oid=#{@td.oid}")
+    ret.num_rows().should eql(1)
+    ret.fetch_row().should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_FALSE])
+
+    td1 = TestData.get(@td.oid)
+    td1.should be_instance_of(TestData)
+    td1.oid.should eql(@td.oid)
+
+    td2 = TestData.get(@td.oid)
+    td2.object_id.should eql(td1.object_id)
+    td3 = TestData.get(@td.oid)
+    td3.object_id.should eql(td1.object_id)
+    td3 = TestData.get(@td.oid)
+    td3.object_id.should eql(td1.object_id)
+
+    td4 = TestData.get(@td.oid, :ignore_cache => true)
+    td4.object_id.should_not eql(td1.object_id)
+  end
+  
   it "に oid ひとつのみを引数に .get し、その oid のレコードが存在して removed フラグが立っている場合 nil が返ること" do
     @td.save()
     toid = @td.oid

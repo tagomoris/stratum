@@ -126,8 +126,14 @@ module Stratum
       $STRATUM_MODEL_CACHE_BOX[model.oid] = [model, Time.now + EXPIRE_SECONDS]
     end
 
-    def self.flush
-      $STRATUM_MODEL_CACHE_BOX = {}
+    def self.flush(target=nil)
+      if target and target.respond_to?(:oid)
+        $STRATUM_MODEL_CACHE_BOX.delete(target.oid)
+      elsif target
+        $STRATUM_MODEL_CACHE_BOX.delete(target.to_i)
+      else
+        $STRATUM_MODEL_CACHE_BOX = {}
+      end
     end
   end
 end
@@ -690,6 +696,7 @@ module Stratum
     def self.get(*key)
       # return single object for single argument
       # else, as array
+      # :ignore_cache => true option returns result without ModelCache query (direct DB source)
       # :before => time options returns result with condition 'inserted_at < time'
       # :force_all => true option returns result with removed=true
 
@@ -708,7 +715,7 @@ module Stratum
       keys = key_oids.dup
       models = {}
 
-      unless opts[:before]
+      unless opts[:before] or opts[:ignore_cache]
         keys.dup.each do |oid|
           m = ModelCache.get(oid)
           next if m.nil? or m.class != self
@@ -1057,7 +1064,7 @@ module Stratum
       raise InvalidUpdateError, "un-updatable object" unless self.updatable?
       return self if self.saved?
 
-      ModelCache.flush()
+      ModelCache.flush(self)
 
       if @unsaved_oid
         @unsaved_oid = false
@@ -1065,8 +1072,7 @@ module Stratum
       end
 
       Stratum.transaction do |c|
-        prehead = self.class.get(oid)
-        ModelCache.flush()
+        prehead = self.class.get(self.oid) ###TODO
         
         unless prehead
           raise InvalidUpdateError, "specified object to save has invalid oid, without any records"
@@ -1074,6 +1080,7 @@ module Stratum
         if prehead and @pre_update_id and prehead.id != @pre_update_id
           raise ConcurrentUpdateError, "Concurrent update occured about oid #{self.oid}, model #{self.class.name}"
         end
+        ModelCache.flush(self)
 
         self.class.update_unheadnize(prehead.id)
         self.insert()
