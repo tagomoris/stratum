@@ -699,6 +699,8 @@ module Stratum
       # :ignore_cache => true option returns result without ModelCache query (direct DB source)
       # :before => time options returns result with condition 'inserted_at < time'
       # :force_all => true option returns result with removed=true
+      # 
+      # INTERNAL :for_update => true
 
       opts = if key[-1].is_a?(Hash)
                key.delete_at(-1)
@@ -715,7 +717,7 @@ module Stratum
       keys = key_oids.dup
       models = {}
 
-      unless opts[:before] or opts[:ignore_cache]
+      unless opts[:before] or opts[:ignore_cache] or opts[:for_update]
         keys.dup.each do |oid|
           m = ModelCache.get(oid)
           next if m.nil? or m.class != self
@@ -738,7 +740,8 @@ module Stratum
         head_cond = opts[:before] ? "" : " AND head=?"
         removed_cond = opts[:force_all] ? "" : " AND removed=?"
         before_cond = opts[:before] ? " AND inserted_at <= ? ORDER BY id DESC LIMIT 1" : ""
-        sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond})#{head_cond}#{removed_cond}#{before_cond}"
+        for_update = opts[:for_update] ? " FOR UPDATE" : ""
+        sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond})#{head_cond}#{removed_cond}#{before_cond}#{for_update}"
 
         keys.push(BOOL_TRUE) unless opts[:before]
         keys.push(BOOL_FALSE) unless opts[:force_all]
@@ -1072,7 +1075,7 @@ module Stratum
       end
 
       Stratum.transaction do |c|
-        prehead = self.class.get(self.oid) ###TODO
+        prehead = self.class.get(self.oid, :for_update => true)
         
         unless prehead
           raise InvalidUpdateError, "specified object to save has invalid oid, without any records"
@@ -1082,8 +1085,8 @@ module Stratum
         end
         ModelCache.flush(self)
 
-        self.class.update_unheadnize(prehead.id)
         self.insert()
+        self.class.update_unheadnize(prehead.id)
       end
       @unsaved_oid = false
       self
@@ -1097,7 +1100,7 @@ module Stratum
       ModelCache.flush()
 
       Stratum.transaction do |c|
-        prehead = self.class.get(self.oid)
+        prehead = self.class.get(self.oid, :for_update => true)
         ModelCache.flush()
 
         unless prehead
@@ -1107,8 +1110,8 @@ module Stratum
           raise ConcurrentUpdateError, "Concurrent remove occured about oid #{self.oid}, model #{self.class.name}"
         end
         
-        self.class.update_unheadnize(prehead.id)
         self.insert(:removed => true)
+        self.class.update_unheadnize(prehead.id)
       end
       ModelCache.flush()
       @unsaved_oid = false
