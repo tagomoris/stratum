@@ -952,7 +952,7 @@ module Stratum
         Stratum.conn do |conn|
           st = conn.prepare(sql)
           st.execute(*vals)
-          result = st.fetch.first
+          result = st.fetch.first.to_i
           st.free_result
         end
       elsif selector
