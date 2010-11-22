@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 require 'mysql'
+require_relative './json'
 
 class Mysql
   class Time
@@ -140,6 +141,8 @@ end
 
 module Stratum
   class Model
+    include Stratum::JSON
+
     $STRATUM_MODEL_TABLENAMES = Hash.new
     $STRATUM_MODEL_FIELDS = Hash.new
 
@@ -1177,7 +1180,6 @@ module Stratum
         end
       end
 
-#      return self if fetched.size < 1
       if fetched.size < 1
         @values['oid'] = Stratum.allocate_oid
         return self
