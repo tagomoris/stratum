@@ -4,8 +4,7 @@ require 'json'
 
 module Stratum
   module JSON
-    def to_json(*args)
-      opts = args.last.is_a?(Hash) ? args.pop : {}
+    def to_json(state=nil, depth=0)
       h = {
         :model => self.class.to_s,
         :oid => self.oid,
@@ -16,14 +15,24 @@ module Stratum
         :removed => self.removed,
         :display => self.to_s,
       }
-      return h.to_json unless opts[:with_content]
+      return h.to_json if depth > 2
       
       body = {}
-      self.class.fields.each do |f|
-        body[f] = self.send(f)
+      self.class.fields.select{|f| self.class.datatype(f) != :reserved}.each do |f|
+        val = self.send(f)
+        body[f] = if val == ""
+                    nil
+                  elsif val.is_a?(Stratum::Model)
+                    s = val.to_s
+                    s == "" ? nil : s
+                  elsif val.is_a?(Array)
+                    val.map(&:to_s)
+                  else
+                    val
+                  end
       end
       h[:content] = body
-      h.to_json
+      h.to_json(state, depth+1)
     end
   end
 end
