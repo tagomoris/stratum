@@ -18,15 +18,24 @@ module Stratum
       return h.to_json if depth > 2
       
       body = {}
-      self.class.fields.select{|f| self.class.datatype(f) != :reserved}.each do |f|
+      self.class.fields.each do |f|
+        fdef = self.class.definition(f)
+        next if fdef.nil? or fdef[:datatype] == :reserved
         val = self.send(f)
-        body[f] = if val == ""
-                    nil
-                  elsif val.is_a?(Stratum::Model)
-                    s = val.to_s
-                    s == "" ? nil : s
-                  elsif val.is_a?(Array)
-                    val.map(&:to_s)
+        body[f] = case fdef[:datatype]
+                  when :ref
+                    if fdef[:serialize_as_id]
+                      val ? val.oid : nil
+                    else
+                      s = val.to_s
+                      s == "" ? nil : s
+                    end
+                  when :reflist
+                    if fdef[:serialize_as_id]
+                      val.map(&:oid)
+                    else
+                      val.map(&:to_s)
+                    end
                   else
                     val
                   end
