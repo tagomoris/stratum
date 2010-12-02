@@ -15,6 +15,10 @@ module Stratum
         :removed => self.removed,
         :display => self.to_s,
       }
+      if self.respond_to?(:json_meta_fields)
+        h.update(self.json_meta_fields) {|k,v1,v2| raise RuntimeError, "cannot update pre-defined meta fields"}
+      end
+
       return h.to_json if depth > 2
       
       body = {}
