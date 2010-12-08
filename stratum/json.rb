@@ -4,7 +4,7 @@ require 'json'
 
 module Stratum
   module JSON
-    def to_json(state=nil, depth=0)
+    def to_tree(depth=0)
       h = {
         :model => self.class.to_s,
         :oid => self.oid,
@@ -19,24 +19,35 @@ module Stratum
         h.update(self.json_meta_fields) {|k,v1,v2| raise RuntimeError, "cannot update pre-defined meta fields"}
       end
 
-      return h.to_json if depth > 2
-      
+      return h if depth > 2
+
       body = {}
       self.class.fields.each do |f|
         fdef = self.class.definition(f)
         next if fdef.nil? or fdef[:datatype] == :reserved
+
         val = self.send(f)
         body[f] = case fdef[:datatype]
                   when :ref
-                    if fdef[:serialize_as_id]
-                      val ? val.oid : nil
+                    case fdef[:serialize]
+                    when :oid
+                      val && val.oid
+                    when :meta
+                      val && val.to_tree(depth+2)
+                    when :full
+                      val && val.to_tree(1)
                     else
                       s = val.to_s
                       s == "" ? nil : s
                     end
                   when :reflist
-                    if fdef[:serialize_as_id]
+                    case fdef[:serialize]
+                    when :oid
                       val.map(&:oid)
+                    when :meta
+                      val.map{|v| v.to_tree(depth+2)}
+                    when :full
+                      val.map{|v| v.to_tree(1)}
                     else
                       val.map(&:to_s)
                     end
@@ -45,7 +56,11 @@ module Stratum
                   end
       end
       h[:content] = body
-      h.to_json(state, depth+1)
+      h
+    end
+
+    def to_json(state=nil, depth=0)
+      self.to_tree(depth).to_json(state, depth+1)
     end
   end
 end

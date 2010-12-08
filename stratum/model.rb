@@ -320,7 +320,7 @@ module Stratum
         unless fdef[:model]
           raise InvalidFieldDefinition, "missing one or both of :column and :model for :ref/:reflist field #{fname}"
         end
-        unknowns = fdef.keys - [:datatype, :model, :manualmaint, :serialize_as_id, :empty] # ref don't have default
+        unknowns = fdef.keys - [:datatype, :model, :manualmaint, :serialize, :empty] # ref don't have default
         if unknowns.size > 0
           raise InvalidFieldDefinition, "Unknown field options #{unknowns.join(',')}"
         end
