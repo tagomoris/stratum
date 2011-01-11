@@ -186,6 +186,7 @@ module Stratum
         yield self
       rescue
         @handler.rollback()
+        Stratum::ModelCache.flush()
         raise
       ensure
         unless $! # reach ensure without any exceptions
