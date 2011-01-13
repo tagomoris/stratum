@@ -137,7 +137,7 @@ module Stratum
         @handler.autocommit(true)
         @owned = false
       rescue
-        self.close()
+        self.close() unless self.in_tx?
         raise
       ensure
         self.release_tx()
