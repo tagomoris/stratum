@@ -826,7 +826,11 @@ module Stratum
         st = conn.prepare(sql)
         st.execute(BOOL_TRUE, BOOL_FALSE)
         while pairs = st.fetch_hash
-          result.push(self.new(pairs))
+          obj = self.new(pairs)
+          if obj
+            ModelCache.set(obj)
+          end
+          result.push(obj)
         end
         st.free_result
       end
