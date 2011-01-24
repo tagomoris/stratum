@@ -857,21 +857,26 @@ module Stratum
     def self.query(opts={})
       # :unique => true option should be specified when queried condition and oid are connected 1-on-1
       # :force_all => true option returns result with removed=true
-      #TODO :before needed?
+      # :before => time options returns result with condition 'inserted_at < time'
 
       unique = opts.delete(:unique)
       force_all = opts.delete(:force_all)
       count = opts.delete(:count)
       oidonly = opts.delete(:oidonly)
+      before = opts.delete(:before)
+
       if count
         raise ArgumentError, 'invalid option specification both :count and :unique' if unique
         raise ArgumentError, 'invalid option specification both :count and :oidonly' if oidonly
+        raise ArgumentError, 'invalid option specification both :count and :before' if before
       end
+
       selector = opts.delete(:select)
       if selector
         raise ArgumentError, ':selector option accepts only :first/:last' unless [:first,:last].include?(selector)
         raise ArgumentError, 'invalid option specification both :unique and :select' if unique
         raise ArgumentError, 'invalid option specification both :count and :select' if count
+        raise ArgumentError, 'invalid option specification both :before and :select' if before
         force_all = true
       end
 
@@ -939,20 +944,25 @@ module Stratum
       end
       cond = conds.join(' AND ')
 
-      head_cond = selector ? "" : "AND head=?"
-      removed_cond = force_all ? "" : "AND removed=?" # if selector setted, force_all is always true
+      head_cond = (selector or before) ? "" : "AND head=?"
+      removed_cond = (force_all or before) ? "" : "AND removed=?" # if selector setted, force_all is always true
+      before_cond = before ? "AND inserted_at <= ? ORDER BY id DESC" : ""
+
       sql = if count
               "SELECT count(*) FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
             else
-              if oidonly
+              if oidonly and not before
                 "SELECT oid FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
+              elsif before
+                "SELECT id,oid FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond} #{before_cond}"
               else
                 "SELECT #{fieldnames} FROM #{self.tablename} WHERE (#{cond}) #{head_cond} #{removed_cond}"
               end
             end
 
-      vals.push(BOOL_TRUE) unless selector
-      vals.push(BOOL_FALSE) unless force_all
+      vals.push(BOOL_TRUE) unless (selector or before) # head
+      vals.push(BOOL_FALSE) unless (force_all or before) # removed
+      vals.push(before) if before # inserted_at
 
       result = []
       if count
@@ -986,9 +996,28 @@ module Stratum
           st = conn.prepare(sql)
           st.execute(*vals)
 
-          if oidonly
+          if oidonly and not before
             while vals = st.fetch
               result.push(vals.first.to_i)
+            end
+          elsif before
+            id_pairs = {}
+            while vals = st.fetch
+              id = vals.first.to_i
+              oid = vals.last.to_i
+              if not id_pairs[oid] or id > id_pairs[oid]
+                id_pairs[oid] = id
+              end
+            end
+            objs = self.get(id_pairs.keys, :before => before)
+            objs.each do |obj|
+              if id_pairs[obj.oid] == obj.id
+                if oidonly
+                  result.push(obj.oid)
+                else
+                  result.push(obj)
+                end
+              end
             end
           else
             while pairs = st.fetch_hash

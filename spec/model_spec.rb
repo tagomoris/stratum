@@ -2306,6 +2306,49 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.sort_by(&:oid).map(&:id).should eql([103377,103378,103379])
   end
 
+  it "に :bool および :before => anytime を条件に .query し、条件に合致するものが返ること" do
+    tdoid1 = 10340
+    tdoid2 = 10341
+    tdoid3 = 10342
+    tdoid4 = 10343
+    @conn.query("DELETE FROM #{TestData.tablename}")
+    vals = "string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103410,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},flag2='0'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103411,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},flag2='0'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103412,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},flag2='1'")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103413,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},flag2='0'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103414,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},flag2='1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103415,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},flag2='1'")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103416,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},flag2='1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103417,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},flag2='1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103418,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals},flag2='1'")
+
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103419,inserted_at='2010-08-16 12:15:33',oid=#{tdoid4},head='0',removed='0',#{vals},flag2='1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103420,inserted_at='2010-08-17 12:15:33',oid=#{tdoid4},head='0',removed='0',#{vals},flag2='0'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103421,inserted_at='2010-08-18 12:15:33',oid=#{tdoid4},head='1',removed='0',#{vals},flag2='0'")
+
+    ary = TestData.query(:flag2 => true, :before => '2010-08-18 12:30:00')
+    ary.size.should eql(3)
+    ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
+    TestData.query(:flag2 => true, :before => '2010-08-18 12:30:00', :oidonly => true).sort.should eql([tdoid1,tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103412,103415,103418])
+
+    ary = TestData.query(:flag2 => true, :before => '2010-08-17 12:30:00')
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid2,tdoid3])
+    TestData.query(:flag2 => true, :before => '2010-08-17 12:30:00', :oidonly => true).sort.should eql([tdoid2,tdoid3])
+    ary.sort_by(&:oid).map(&:id).should eql([103414,103417])
+
+    ary = TestData.query(:flag2 => true, :before => '2010-08-16 12:30:00')
+    ary.size.should eql(2)
+    ary.map(&:oid).sort.should eql([tdoid3,tdoid4])
+    TestData.query(:flag2 => true, :before => '2010-08-16 12:30:00', :oidonly => true).sort.should eql([tdoid3,tdoid4])
+    ary.sort_by(&:oid).map(&:id).should eql([103416,103419])
+
+  end
+
   it "に :string のみを条件に .query し、条件に該当するオブジェクトが存在しない場合、空配列が返ること" do
     tdoid1 = 10341
     tdoid2 = 10342
