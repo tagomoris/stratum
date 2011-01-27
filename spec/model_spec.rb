@@ -2088,6 +2088,48 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.map(&:string3).should eql(['three', 'two', 'one', 'zero'])
   end
 
+  it "に、条件なしで .choose し、例外が発生すること" do
+    lambda {TestData.choose()}.should raise_exception(ArgumentError)
+    lambda {TestData.choose(:string1)}.should raise_exception(ArgumentError)
+    lambda {TestData.choose(){|v| v}}.should raise_exception(ArgumentError)
+  end
+  
+  it "に :string 以外のフィールドに対して .choose し、例外が発生すること" do
+    lambda {TestData.choose(:flag1){|v| v}}.should raise_exception(ArgumentError)
+    lambda {TestData.choose(:list1){|v| v.size > 3}}.should raise_exception(ArgumentError)
+    lambda {TestData.choose(:testex2s){|v| false}}.should raise_exception(ArgumentError)
+  end
+  
+  it "に、数件の結果が返るよう .regex_match し、条件に合うオブジェクトの配列が返ること" do
+    @conn.query("DELETE FROM #{TestEX1.tablename}")
+    (0...1000).each do |i|
+      sn = if i < 500
+             "web#{i}.blog-new"
+           elsif i < 600
+             "db#{i}.blog-new"
+           elsif i < 800
+             "app#{i}.blog-new"
+           else
+             "dev#{i}.blog-new"
+           end
+      if (i % 20) == 0
+        sn += '.dev'
+      end
+      @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=#{i + 2000},name='#{sn}',operated_by=1")
+    end
+
+    ary = TestEX1.choose(:name){|v| v=~ /db.*\.dev\Z/}
+    ary.size.should eql(5)
+    ary.map{|i| (i.oid - 2000)}.should eql([500, 520, 540, 560, 580])
+
+    ary = TestEX1.choose(:name){|v| v=~ /\Adev.*/}
+    ary.size.should eql(200)
+
+    ary = TestEX1.choose(:name){|v| true}
+    ary.size.should eql(1000)
+  end
+
+
   it "に、条件なし、もしくは複数の条件で .regex_match し、例外が発生すること" do
     lambda {TestData.regex_match()}.should raise_exception(ArgumentError)
     lambda {TestData.regex_match(:string1 => /HOGE.*/, :string2 => /2\Z/)}.should raise_exception(ArgumentError)

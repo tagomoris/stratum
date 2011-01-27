@@ -789,16 +789,11 @@ module Stratum
       result
     end
 
-    def self.regex_match(opts={})
-      oidonly = opts.delete(:oidonly)
-
-      raise ArgumentError, "regex_match accepts only one field=>regex pair" if opts.size != 1
-
-      fname = (opts.keys)[0]
+    def self.choose(fname, oidonly=false, &block)
+      raise ArgumentError, "Model.choose needs field name" unless fname
+      raise ArgumentError, "Model.choose needs block" unless block_given?
       column = self.column_by(fname)
-      regex = opts[fname]
-
-      raise ArgumentError, "regex_match accepts only string fields for search" if self.datatype(fname) != :string
+      raise ArgumentError, "Model.choose accepts only string fields for search" if self.datatype(fname) != :string
 
       result = nil
       Stratum.conn do |conn|
@@ -806,13 +801,21 @@ module Stratum
         st.execute(BOOL_TRUE, BOOL_FALSE)
         oids = []
         while pair = st.fetch
-          if regex.match(pair[1])
+          if yield pair[1]
             oids.push(pair[0])
           end
         end
         result = oidonly ? oids : self.get(oids)
       end
       result
+    end
+
+    def self.regex_match(opts={})
+      oidonly = opts.delete(:oidonly)
+      raise ArgumentError, "regex_match accepts only one field=>regex pair" if opts.size != 1
+      fname = (opts.keys)[0]
+      regex = opts[fname]
+      self.choose(fname, oidonly){|value| regex.match(value)}
     end
 
     def self.all(opts={})
@@ -851,7 +854,7 @@ module Stratum
         raise ArgumentError, "invalid type of field #{key_field} for getlist key field, needed :string"
       end
 
-      self.regex_match(key_field => /./).sort{|a,b| a.send(key_field) <=> b.send(key_field)}
+      self.choose(key_field){|v| v and not v.empty?}.sort{|a,b| a.send(key_field) <=> b.send(key_field)}
     end
     
     def self.query(opts={})
