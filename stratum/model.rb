@@ -789,20 +789,35 @@ module Stratum
       result
     end
 
-    def self.choose(fname, oidonly=false, &block)
+    def self.choose(fname, opts={}, &block)
+      oidonly = opts.delete(:oidonly)
+      lowlevel = opts.delete(:lowlevel)
       raise ArgumentError, "Model.choose needs field name" unless fname
       raise ArgumentError, "Model.choose needs block" unless block_given?
       column = self.column_by(fname)
-      raise ArgumentError, "Model.choose accepts only string fields for search" if self.datatype(fname) != :string
+      conv = case self.datatype(fname)
+             when :bool then Proc.new{|v| v == BOOL_TRUE}
+             when :string then Proc.new{|v| v}
+             when :stringlist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(self.definition(fname)[:separator])}
+             when :taglist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(TAG_SEPARATOR)}
+             when :ref then Proc.new{|v| v}
+             when :reflist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(REFLIST_SEPARATOR).map{|v| v.to_i}}
+             else
+               raise RuntimeError, "unknown field definition"
+             end
 
       result = nil
       Stratum.conn do |conn|
         st = conn.prepare("SELECT oid,#{column} FROM #{self.tablename} WHERE head=? AND removed=?")
         st.execute(BOOL_TRUE, BOOL_FALSE)
         oids = []
-        while pair = st.fetch
-          if yield pair[1]
-            oids.push(pair[0])
+        if lowlevel
+          while pair = st.fetch
+            oids.push(pair[0]) if yield pair[1]
+          end
+        else
+          while pair = st.fetch
+            oids.push(pair[0]) if yield conv.call(pair[1])
           end
         end
         result = oidonly ? oids : self.get(oids)
@@ -814,8 +829,9 @@ module Stratum
       oidonly = opts.delete(:oidonly)
       raise ArgumentError, "regex_match accepts only one field=>regex pair" if opts.size != 1
       fname = (opts.keys)[0]
+      raise ArgumentError, "regex_match accepts only string field as target" unless self.datatype(fname) == :string
       regex = opts[fname]
-      self.choose(fname, oidonly){|value| regex.match(value)}
+      self.choose(fname, :oidonly => oidonly){|value| regex.match(value)}
     end
 
     def self.all(opts={})

@@ -2093,29 +2093,23 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     lambda {TestData.choose(:string1)}.should raise_exception(ArgumentError)
     lambda {TestData.choose(){|v| v}}.should raise_exception(ArgumentError)
   end
-  
-  it "に :string 以外のフィールドに対して .choose し、例外が発生すること" do
-    lambda {TestData.choose(:flag1){|v| v}}.should raise_exception(ArgumentError)
-    lambda {TestData.choose(:list1){|v| v.size > 3}}.should raise_exception(ArgumentError)
-    lambda {TestData.choose(:testex2s){|v| false}}.should raise_exception(ArgumentError)
-  end
-  
-  it "に、数件の結果が返るよう .regex_match し、条件に合うオブジェクトの配列が返ること" do
+    
+  it "に、数件の結果が返るよう .choose し、条件に合うオブジェクトの配列が返ること" do
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     (0...1000).each do |i|
-      sn = if i < 500
-             "web#{i}.blog-new"
-           elsif i < 600
-             "db#{i}.blog-new"
-           elsif i < 800
-             "app#{i}.blog-new"
-           else
-             "dev#{i}.blog-new"
-           end
+      sn,si = if i < 500
+                ["web#{i}.blog-new", 500]
+              elsif i < 600
+                ["db#{i}.blog-new", 600]
+              elsif i < 800
+                ["app#{i}.blog-new", 800]
+              else
+                ["dev#{i}.blog-new", 1000]
+              end
       if (i % 20) == 0
         sn += '.dev'
       end
-      @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=#{i + 2000},name='#{sn}',operated_by=1")
+      @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=#{i + 2000},name='#{sn}',data=#{si},operated_by=1")
     end
 
     ary = TestEX1.choose(:name){|v| v=~ /db.*\.dev\Z/}
@@ -2124,9 +2118,37 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
     ary = TestEX1.choose(:name){|v| v=~ /\Adev.*/}
     ary.size.should eql(200)
+    ary = TestEX1.choose(:data){|v| v == 1000}
+    ary.size.should eql(200)
 
     ary = TestEX1.choose(:name){|v| true}
     ary.size.should eql(1000)
+
+    @conn.query("DELETE FROM #{TestEX2.tablename}")
+    (0...1000).each do |i|
+      sn,sis = if i < 500
+                ["web#{i}.blog-new", "10,20"]
+              elsif i < 600
+                ["db#{i}.blog-new", "30,40,50"]
+              elsif i < 800
+                ["app#{i}.blog-new", ""]
+              else
+                ["dev#{i}.blog-new", "60"]
+              end
+      if (i % 20) == 0
+        sn += '.dev'
+      end
+      @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=#{i + 2000},name='#{sn}',datas='#{sis}',operated_by=1")
+    end
+
+    ary = TestEX2.choose(:name){|v| v=~ /\Adev.*/}
+    ary.size.should eql(200)
+    ary = TestEX2.choose(:datas){|v| v.include?(30)}
+    ary.size.should eql(100)
+    ary = TestEX2.choose(:datas){|v| v.size > 1}
+    ary.size.should eql(600)
+    ary = TestEX2.choose(:datas, :lowlevel => true){|v| v.empty?}
+    ary.size.should eql(200)
   end
 
 
