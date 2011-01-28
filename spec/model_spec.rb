@@ -2090,6 +2090,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
   it "に、条件なしで .choose し、例外が発生すること" do
     lambda {TestData.choose()}.should raise_exception(ArgumentError)
+    TestData.choose(:string1){|s| true}
     lambda {TestData.choose(:string1)}.should raise_exception(ArgumentError)
     lambda {TestData.choose(){|v| v}}.should raise_exception(ArgumentError)
   end
@@ -2108,18 +2109,22 @@ describe Stratum::Model, "によってDB操作を行うとき" do
               end
       if (i % 20) == 0
         sn += '.dev'
+        si = 0
       end
       @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=#{i + 2000},name='#{sn}',data=#{si},operated_by=1")
     end
 
-    ary = TestEX1.choose(:name){|v| v=~ /db.*\.dev\Z/}
+    ary = TestEX1.choose(:name){|v| v=~ /\Adb.*\.dev\Z/}
+    ary.size.should eql(5)
+    ary.map{|i| (i.oid - 2000)}.should eql([500, 520, 540, 560, 580])
+    ary = TestEX1.choose(:name, :data){|n,d| n=~ /\Adb/ and d == 0}
     ary.size.should eql(5)
     ary.map{|i| (i.oid - 2000)}.should eql([500, 520, 540, 560, 580])
 
     ary = TestEX1.choose(:name){|v| v=~ /\Adev.*/}
     ary.size.should eql(200)
     ary = TestEX1.choose(:data){|v| v == 1000}
-    ary.size.should eql(200)
+    ary.size.should eql(190)
 
     ary = TestEX1.choose(:name){|v| true}
     ary.size.should eql(1000)
@@ -2149,6 +2154,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.size.should eql(600)
     ary = TestEX2.choose(:datas, :lowlevel => true){|v| v.empty?}
     ary.size.should eql(200)
+    ary = TestEX2.choose(:name, :datas, :lowlevel => true){|n,ds| ds.empty? and n !~ /\.dev\Z/}
+    ary.size.should eql(190)
   end
 
 

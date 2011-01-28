@@ -789,35 +789,42 @@ module Stratum
       result
     end
 
-    def self.choose(fname, opts={}, &block)
+    def self.choose(*args, &block)
+      opts = args[-1].is_a?(Hash) ? args.delete_at(-1) : {}
+      fnames = [args].flatten
       oidonly = opts.delete(:oidonly)
       lowlevel = opts.delete(:lowlevel)
-      raise ArgumentError, "Model.choose needs field name" unless fname
+      raise ArgumentError, "Model.choose needs field name" unless fnames.size > 0
       raise ArgumentError, "Model.choose needs block" unless block_given?
-      column = self.column_by(fname)
-      conv = case self.datatype(fname)
-             when :bool then Proc.new{|v| v == BOOL_TRUE}
-             when :string then Proc.new{|v| v}
-             when :stringlist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(self.definition(fname)[:separator])}
-             when :taglist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(TAG_SEPARATOR)}
-             when :ref then Proc.new{|v| v}
-             when :reflist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(REFLIST_SEPARATOR).map{|v| v.to_i}}
-             else
-               raise RuntimeError, "unknown field definition"
-             end
+      columns = fnames.map{|f| self.column_by(f)}
+      convs = fnames.map{|f|
+        case self.datatype(f)
+        when :bool then Proc.new{|v| v == BOOL_TRUE}
+        when :string then Proc.new{|v| v}
+        when :stringlist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(self.definition(fname)[:separator])}
+        when :taglist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(TAG_SEPARATOR)}
+        when :ref then Proc.new{|v| v}
+        when :reflist then Proc.new{|v| (v.nil? or v.empty?) ? [] : v.split(REFLIST_SEPARATOR).map{|v| v.to_i}}
+        else
+          raise RuntimeError, "unknown field definition"
+        end
+      }
+      conv = Proc.new{|ary| [convs,ary].transpose.map{|c,v| c.call(v)}}
 
       result = nil
       Stratum.conn do |conn|
-        st = conn.prepare("SELECT oid,#{column} FROM #{self.tablename} WHERE head=? AND removed=?")
+        columns_s = columns.join(",")
+        columns_n = columns.size
+        st = conn.prepare("SELECT oid,#{columns_s} FROM #{self.tablename} WHERE head=? AND removed=?")
         st.execute(BOOL_TRUE, BOOL_FALSE)
         oids = []
         if lowlevel
           while pair = st.fetch
-            oids.push(pair[0]) if yield pair[1]
+            oids.push(pair[0]) if yield *(pair[1,columns_n])
           end
         else
           while pair = st.fetch
-            oids.push(pair[0]) if yield conv.call(pair[1])
+            oids.push(pair[0]) if yield *(conv.call(pair[1,columns_n]))
           end
         end
         result = oidonly ? oids : self.get(oids)
