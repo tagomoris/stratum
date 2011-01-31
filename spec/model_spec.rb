@@ -2751,7 +2751,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
     TestTag.query(:tags => ["HOGE", "POS"]).size.should eql(6)
     TestTag.query(:tags => ['20100825-15:18']).size.should eql(4)
-    TestTag.query(:tags => 'blog-new').size.should eql(4)
+    TestTag.query(:tags => 'blog-new').size.should eql(3)
     TestTag.query(:tags => 'DB').size.should eql(2)
   end
 

@@ -906,6 +906,8 @@ module Stratum
         force_all = true
       end
 
+      distinct_equality_checks = []
+
       fieldnames = self.columns.join(',')
       conds = []
       vals = []
@@ -930,12 +932,12 @@ module Stratum
                     [v].flatten.join(self.definition(k)[:separator])
                   end
                 when :taglist
-                  if v.instance_of?(Array)
-                    v.map{|s| '+' + s}.join(' ')
-                  elsif v.nil?
-                    nil
+                  if v
+                    words = [v].flatten
+                    distinct_equality_checks.push(Proc.new{|obj| words.inject(true){|r,s| r and obj.send(k).include?(s)}})
+                    words.flatten.map{|s| s.split(/[^0-9a-zA-Z]/)}.flatten.map{|s| '+' + s}.join(' ')
                   else
-                    v.to_s
+                    nil
                   end
                 when :ref
                   if v.nil?
@@ -1037,7 +1039,7 @@ module Stratum
             end
             objs = self.get(id_pairs.keys, :before => before)
             objs.each do |obj|
-              if id_pairs[obj.oid] == obj.id
+              if id_pairs[obj.oid] == obj.id and distinct_equality_checks.inject(true){|r,proc| r and proc.call(obj)}
                 if oidonly
                   result.push(obj.oid)
                 else
@@ -1047,7 +1049,10 @@ module Stratum
             end
           else
             while pairs = st.fetch_hash
-              result.push(self.new(pairs))
+              obj = self.new(pairs)
+              if distinct_equality_checks.inject(true){|r,proc| r and proc.call(obj)}
+                result.push(obj)
+              end
             end
           end
           st.free_result
