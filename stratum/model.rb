@@ -770,23 +770,45 @@ module Stratum
       ary
     end
 
-    def self.retrospect(oid)
+    def self.retrospect(*oids)
+      single_arg = (oids.size == 1 and not oids.first.is_a?(Array))
+      oids = oids.flatten
       fieldnames = self.columns.join(',')
-      sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE oid=? ORDER BY id DESC"
+      sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE " + Array.new(oids.size, 'oid=?').join(' OR ') + ' ORDER BY id DESC'
 
-      result = []
+      result = {}
       Stratum.conn do |conn|
         st = conn.prepare(sql)
-        st.execute(oid.to_i)
+        st.execute(*(oids.map{|i| i.to_i}))
 
         while pairs = st.fetch_hash
-          result.push(self.new(pairs, :before => pairs['inserted_at'].addseconds(2)))
+          obj = self.new(pairs, :before => pairs['inserted_at'].addseconds(2))
+          result[obj.oid] = [] unless result[obj.oid]
+          result[obj.oid].push(obj)
         end
         st.free_result
       end
       
-      return nil if result.size < 1
-      result
+      return result[oids.first.to_i] if single_arg
+      oids.map{|i| result[i.to_i]}
+    end
+
+    def self.dig(from, to=nil)
+      sql = "SELECT oid FROM #{self.tablename} WHERE inserted_at BETWEEN ? AND " + (to ? '?' : 'NOW()') + ' GROUP BY oid'
+      args = [from]
+      args.push(to) if to
+      result_oids = []
+      Stratum.conn do |conn|
+        st = conn.prepare(sql)
+        st.execute(*args)
+        st.each do |values|
+          result_oids.push(values.first)
+        end
+        st.free_result
+      end
+
+      return [] if result_oids.size < 1
+      self.retrospect(result_oids)
     end
 
     def self.choose(*args, &block)

@@ -2088,6 +2088,108 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.map(&:string3).should eql(['three', 'two', 'one', 'zero'])
   end
 
+  it "に複数の oid を引数に .retrospect し、条件に該当するレコードの履歴が配列の配列で返ること、また順序が引数 oid のリスト順序になっていること" do 
+    vals = "flag2='0',string1='hoge',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+
+    tdoid1 = 40101
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-17 12:15:34',oid=#{tdoid1},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-18 12:15:35',oid=#{tdoid1},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 12:15:36',oid=#{tdoid1},head='1',removed='0',#{vals},string3='three'")
+    
+    tdoid2 = 40102
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-15 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-17 12:15:34',oid=#{tdoid2},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-21 12:15:35',oid=#{tdoid2},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-22 12:15:36',oid=#{tdoid2},head='1',removed='0',#{vals},string3='three'")
+
+    tdoid3 = 40103
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-15 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-18 12:15:34',oid=#{tdoid3},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 12:15:35',oid=#{tdoid3},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-24 12:15:36',oid=#{tdoid3},head='1',removed='0',#{vals},string3='three'")
+
+    td1history = TestData.retrospect(tdoid1)
+    td2history = TestData.retrospect(tdoid2)
+    td3history = TestData.retrospect(tdoid3)
+
+    ary = TestData.retrospect([tdoid1, tdoid2, tdoid3])
+    ary[0].first.oid.should eql(tdoid1)
+    ary[1].first.oid.should eql(tdoid2)
+    ary[2].first.oid.should eql(tdoid3)
+
+    ary[0].map{|obj| obj.id}.should eql(td1history.map{|o| o.id})
+    ary[1].map{|obj| obj.id}.should eql(td2history.map{|o| o.id})
+    ary[2].map{|obj| obj.id}.should eql(td3history.map{|o| o.id})
+
+    ary2 = TestData.retrospect([tdoid3, tdoid1])
+    ary2[0].first.oid.should eql(tdoid3)
+    ary2[1].first.oid.should eql(tdoid1)
+
+    ary2[0].map{|obj| obj.id}.should eql(td3history.map{|o| o.id})
+    ary2[1].map{|obj| obj.id}.should eql(td1history.map{|o| o.id})
+  end
+
+  it "に .dig し、条件に該当するレコードが無い場合に空配列が返ること" do
+    vals = "flag2='0',string1='hoge',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+
+    @conn.query("DELETE FROM #{TestData.tablename}")
+
+    tdoid1 = 40111
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-17 12:15:34',oid=#{tdoid1},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-18 12:15:35',oid=#{tdoid1},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 12:15:36',oid=#{tdoid1},head='1',removed='0',#{vals},string3='three'")
+    
+    tdoid2 = 40112
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-15 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-17 12:15:34',oid=#{tdoid2},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-21 12:15:35',oid=#{tdoid2},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-22 12:15:36',oid=#{tdoid2},head='1',removed='0',#{vals},string3='three'")
+
+    tdoid3 = 40113
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-15 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-18 12:15:34',oid=#{tdoid3},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 12:15:35',oid=#{tdoid3},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-24 12:15:36',oid=#{tdoid3},head='1',removed='0',#{vals},string3='three'")
+    
+    TestData.dig('2010-08-30 00:00:00').should eql([])
+    TestData.dig('2010-08-01 00:00:00', '2010-08-15 12:00:00').should eql([])
+    TestData.dig('2010-08-16 13:00:00', '2010-08-17 12:00:00').should eql([])
+  end
+
+  it "に .dig し、条件に該当するレコードの .retrospect 結果と等しいものの配列が返ること" do
+    vals = "flag2='0',string1='hoge',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+
+    @conn.query("DELETE FROM #{TestData.tablename}")
+
+    tdoid1 = 40121
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-17 12:15:34',oid=#{tdoid1},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-18 12:15:35',oid=#{tdoid1},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 12:15:36',oid=#{tdoid1},head='1',removed='0',#{vals},string3='three'")
+    
+    tdoid2 = 40122
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-15 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-17 12:15:34',oid=#{tdoid2},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-21 12:15:35',oid=#{tdoid2},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-22 12:15:36',oid=#{tdoid2},head='1',removed='0',#{vals},string3='three'")
+
+    tdoid3 = 40123
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-15 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},string3='zero'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-18 12:15:34',oid=#{tdoid3},head='0',removed='0',#{vals},string3='one'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 12:15:35',oid=#{tdoid3},head='0',removed='0',#{vals},string3='two'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-24 12:15:36',oid=#{tdoid3},head='1',removed='0',#{vals},string3='three'")
+    
+    td1history = TestData.retrospect(tdoid1)
+    td2history = TestData.retrospect(tdoid2)
+    td3history = TestData.retrospect(tdoid3)
+
+    TestData.dig('2010-08-16 00:00:00', '2010-08-16 23:59:59').map{|ary| ary.map{|o| o.id}}.should eql([td1history.map{|o| o.id}])
+    TestData.dig('2010-08-24 12:00:00').map{|ary| ary.map{|o| o.id}}.should eql([td3history.map{|o| o.id}])
+    TestData.dig('2010-08-17 00:00:00', '2010-08-17 23:00:00').sort{|a,b| a.first.oid <=> b.first.oid}.map{|ary| ary.map{|o| o.id}}.should eql([td1history.map{|o| o.id}, td2history.map{|o| o.id}])
+  end
+
   it "に、条件なしで .choose し、例外が発生すること" do
     lambda {TestData.choose()}.should raise_exception(ArgumentError)
     TestData.choose(:string1){|s| true}
