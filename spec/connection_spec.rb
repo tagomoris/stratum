@@ -79,7 +79,13 @@ describe Stratum::Connection, "がtxなしで使われるとき" do
   end
 
   after do
-    @conn.close()
+    begin
+      @conn.close()
+    rescue NoMethodError => e
+      unless e.message == 'undefined method `close\' for nil:NilClass'
+        raise e
+      end
+    end
   end
 
   it "に、宣言されていないメソッドは Mysql のインスタンスに送られていること" do

@@ -2,6 +2,7 @@
 
 require 'thread'
 require 'mysql'
+require_relative './model'
 
 module Stratum
   class DatabaseError < StandardError ; end
@@ -133,12 +134,11 @@ module Stratum
       end
 
       begin
-        @handler.rollback()  # always do rollback (even if not in tx.)
-        @handler.autocommit(true)
         @owned = false
-      rescue
-        self.close() unless self.in_tx?
-        raise
+        if self.in_tx?
+          @handler.rollback()
+          @handler.autocommit(true)
+        end
       ensure
         self.release_tx()
       end
@@ -150,12 +150,10 @@ module Stratum
         raise Stratum::TransactionOperationError, "don't close connection in transaction!"
       end
 
-      if self.owned?
-        self.release()
-      end
-
       begin
+        self.release()
         @handler.close()
+        @handler = nil
       ensure
         self.class.destruct(self)
       end
