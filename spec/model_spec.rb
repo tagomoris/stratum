@@ -2836,25 +2836,25 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   end
 
   it "に :taglist のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
-    (@conn.query("SHOW VARIABLES LIKE 'ft_min_word_len'").fetch_hash['Value'].to_i <= 2).should be_true
+    (@conn.query("SHOW VARIABLES LIKE 'ft_min_word_len'").fetch_hash['Value'].to_i == 4).should be_true
 
     @conn.query("DELETE FROM #{TestTag.tablename}")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9901,tags='HOGE POS 20100825-15:18 blog-new Web'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9902,tags='HOGE POS 20100824-15:18 blog-new Web'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9903,tags='HOGE POS 20100824-15:18 blog-new DB'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9904,tags='HOGE POS 20100825-15:18 m.blog-new AP'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9905,tags='HOGE POS 20100825-15:18 m.search DB'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9906,tags='HOGE POS 20100825-15:18 m.search Web'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9901,tags='HOGE POSXX 20100825-15:18 blog-new Web'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9902,tags='HOGE POSXX 20100824-15:18 blog-new Web'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9903,tags='HOGE POSXX 20100824-15:18 blog-new DBMS'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9904,tags='HOGE POSXX 20100825-15:18 m.blog-new AP'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9905,tags='HOGE POSXX 20100825-15:18 m.search DBMS'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9906,tags='HOGE POSXX 20100825-15:18 m.search Web'")
 
     ary = TestTag.query(:tags => "HOGE")
     ary.should_not be_nil
     ary.should be_instance_of(Array)
     ary.size.should eql(6)
 
-    TestTag.query(:tags => ["HOGE", "POS"]).size.should eql(6)
+    TestTag.query(:tags => ["HOGE", "POSXX"]).size.should eql(6)
     TestTag.query(:tags => ['20100825-15:18']).size.should eql(4)
     TestTag.query(:tags => 'blog-new').size.should eql(3)
-    TestTag.query(:tags => 'DB').size.should eql(2)
+    TestTag.query(:tags => 'DBMS').size.should eql(2)
   end
 
   it "に :taglist のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
@@ -2881,22 +2881,22 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
     @conn.query("INSERT INTO #{TestTag.tablename} SET id=199211,oid=#{tdoid1},tags='',head='0'")
     @conn.query("INSERT INTO #{TestTag.tablename} SET id=199212,oid=#{tdoid2},tags=NULL,head='0'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199213,oid=#{tdoid3},tags='HOGE POS 20100824-15:18 blog-new DB',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199213,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',head='0'")
 
     @conn.query("INSERT INTO #{TestTag.tablename} SET id=199214,oid=#{tdoid1},tags='',head='0'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199215,oid=#{tdoid2},tags='POS MOGE',head='0'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199216,oid=#{tdoid3},tags='HOGE POS 20100824-15:18 blog-new DB',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199215,oid=#{tdoid2},tags='POSXX MOGE',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199216,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',head='0'")
 
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199217,oid=#{tdoid1},tags='POS'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199218,oid=#{tdoid2},tags='POS MOGE'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199219,oid=#{tdoid3},tags='HOGE POS 20100824-15:18 blog-new DB',removed='1'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199217,oid=#{tdoid1},tags='POSXX'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199218,oid=#{tdoid2},tags='POSXX MOGE'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199219,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',removed='1'")
 
-    ary = TestTag.query(:tags => 'POS', :select => :first)
+    ary = TestTag.query(:tags => 'POSXX', :select => :first)
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([199217,199215,199213])
     
-    ary = TestTag.query(:tags => 'POS', :select => :last)
+    ary = TestTag.query(:tags => 'POSXX', :select => :last)
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([199217,199218,199219])
