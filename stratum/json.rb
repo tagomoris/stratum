@@ -59,8 +59,8 @@ module Stratum
       h
     end
 
-    def to_json(state=nil, depth=0)
-      self.to_tree(depth).to_json(state, depth+1)
+    def to_json(state=nil)
+      self.to_tree(0).to_json(state)
     end
   end
 end
