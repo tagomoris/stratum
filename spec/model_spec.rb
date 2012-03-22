@@ -851,7 +851,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     @conn.query("INSERT INTO testtable SET id=1783,oid=17831,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
     @conn.query("UPDATE testtable SET head='0' WHERE id=1783")
     td1 = TestData.get(17821)
-    td2 = TestData.new(@conn.query('SELECT * FROM testtable WHERE id=1783').fetch_hash())
+    td2 = TestData.new(@conn.query('SELECT * FROM testtable WHERE id=1783').first)
     td1.head.should be_true
     td2.head.should be_false
   end
@@ -1460,7 +1460,7 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     @td.head.should be_true
     tdid = @td.id
     TestData.update_unheadnize(tdid)
-    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{tdid}").fetch_row.first.should eql(Stratum::Model::BOOL_FALSE)
+    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{tdid}").first['head'].should eql(Stratum::Model::BOOL_FALSE)
   end
 
   it "に oid のセットされていないオブジェクトを #save すると、新しい oid がセットされてINSERTされること" do
@@ -1473,16 +1473,16 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
   it "に saved が true なオブジェクトを #save してもDBには何もINSERTされないこと" do
     @td.save
     @td.saved?.should be_true
-    count = @conn.query("SELECT count(*) FROM #{TestData.tablename}").fetch_row.first
+    count = @conn.query("SELECT count(*) FROM #{TestData.tablename}").first['count(*)']
     @td.save
-    @conn.query("SELECT count(*) FROM #{TestData.tablename}").fetch_row.first.should eql(count)
+    @conn.query("SELECT count(*) FROM #{TestData.tablename}").first['count(*)'].should eql(count)
   end
   
   it "に #updatable? が false なオブジェクトを #save すると例外が発生すること" do
     @td.save
     toid = @td.oid
     TestData.update_unheadnize(@td.id)
-    td1 = TestData.new(@conn.query("SELECT * FROM #{TestData.tablename} WHERE oid=#{toid}").fetch_hash)
+    td1 = TestData.new(@conn.query("SELECT * FROM #{TestData.tablename} WHERE oid=#{toid}").first)
     td1.updatable?.should be_false
     lambda {td1.save}.should raise_exception(Stratum::InvalidUpdateError)
   end
@@ -1513,7 +1513,7 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     tdx.string2 = TestData::OPTS[0]
     tdx.save
 
-    tex1count = @conn.query("SELECT count(*) FROM #{TestEX1}").fetch_row.first
+    tex1count = @conn.query("SELECT count(*) FROM #{TestEX1}").first['count(*)']
     begin
       Stratum.transaction do |conn|
         ex1 = TestEX1.new
@@ -1527,20 +1527,20 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     rescue Stratum::ConcurrentUpdateError
       # shake
     end
-    @conn.query("SELECT count(*) FROM #{TestEX1}").fetch_row.first.should eql(tex1count)
+    @conn.query("SELECT count(*) FROM #{TestEX1}").first['count(*)'].should eql(tex1count)
   end
 
   it "に oid のセットされているオブジェクトを #save すると、直前にheadだったレコードがheadでなくなり、新しいレコードがheadとしてINSERTされること" do
     @td.save
     preid = @td.id
-    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").fetch_row.first.should eql(Stratum::Model::BOOL_TRUE)
+    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").first['head'].should eql(Stratum::Model::BOOL_TRUE)
 
     @td.text = "hehehehehehehehehehe"
     @td.save
     postid = @td.id
     postid.should_not eql(preid)
-    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").fetch_row.first.should eql(Stratum::Model::BOOL_FALSE)
-    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{postid}").fetch_row.first.should eql(Stratum::Model::BOOL_TRUE)
+    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").first['head'].should eql(Stratum::Model::BOOL_FALSE)
+    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{postid}").first['head'].should eql(Stratum::Model::BOOL_TRUE)
   end
 
   it "に saved? が false のオブジェクトを #remove すると例外が発生すること" do
@@ -1554,7 +1554,7 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     @td.save
     toid = @td.oid
     TestData.update_unheadnize(@td.id)
-    td1 = TestData.new(@conn.query("SELECT * FROM #{TestData.tablename} WHERE oid=#{toid}").fetch_hash)
+    td1 = TestData.new(@conn.query("SELECT * FROM #{TestData.tablename} WHERE oid=#{toid}").first)
     td1.updatable?.should be_false
 
     lambda {td1.remove()}.should raise_exception(Stratum::InvalidUpdateError)
@@ -1588,7 +1588,7 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     tdx.flag1 = false
     tdx.save
 
-    tex1count = @conn.query("SELECT count(*) FROM #{TestEX1}").fetch_row.first
+    tex1count = @conn.query("SELECT count(*) FROM #{TestEX1}").first['count(*)']
     begin
       Stratum.transaction do |conn|
         ex1 = TestEX1.new
@@ -1601,22 +1601,22 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     rescue Stratum::ConcurrentUpdateError
       # shake
     end
-    @conn.query("SELECT count(*) FROM #{TestEX1}").fetch_row.first.should eql(tex1count)
+    @conn.query("SELECT count(*) FROM #{TestEX1}").first['count(*)'].should eql(tex1count)
   end
 
   it "に oid のセットされているオブジェクトを #remove すると、直前にheadだったレコードがheadでなくなり、新しいレコードがheadとしてINSERTされること" do
     @td.save
     toid = @td.oid
     preid = @td.id
-    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").fetch_row.first.should eql(Stratum::Model::BOOL_TRUE)
+    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").first['head'].should eql(Stratum::Model::BOOL_TRUE)
 
     @td.remove
     tdx = TestData.get(toid, :force_all => true)
     tdx.removed.should be_true
     postid = tdx.id
     postid.should_not eql(preid)
-    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").fetch_row.first.should eql(Stratum::Model::BOOL_FALSE)
-    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{postid}").fetch_row.first.should eql(Stratum::Model::BOOL_TRUE)
+    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{preid}").first['head'].should eql(Stratum::Model::BOOL_FALSE)
+    @conn.query("SELECT head FROM #{TestData.tablename} WHERE id=#{postid}").first['head'].should eql(Stratum::Model::BOOL_TRUE)
   end
 end
 
@@ -1667,7 +1667,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に #updatable? が false なオブジェクトに対して #prepare_to_update すると例外が発生すること" do
     @td.save()
     TestData.update_unheadnize(@td.id)
-    pretd = TestData.new(@conn.query("SELECT * FROM #{TestData.tablename} WHERE id=#{@td.id}").fetch_hash)
+    pretd = TestData.new(@conn.query("SELECT * FROM #{TestData.tablename} WHERE id=#{@td.id}").first)
     lambda {pretd.prepare_to_update()}.should raise_exception(Stratum::InvalidUpdateError)
   end
   
@@ -1711,15 +1711,16 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
   it "に oid ひとつのみを引数に .get し、その oid のレコードが実際には存在しない場合 nil が返ること" do
     toid = 10278
-    @conn.query("SELECT count(*) FROM #{TestData.tablename} WHERE oid=#{toid}").fetch_row.first.should eql("0")
+    @conn.query("SELECT count(*) FROM #{TestData.tablename} WHERE oid=#{toid}").first['count(*)'].should eql(0)
     TestData.get(toid).should be_nil
   end
   
   it "に oid ひとつのみを引数に .get し、その oid のレコードが存在して removed フラグが立っていない場合 head のオブジェクトひとつのみが返ること" do
     @td.save()
     ret = @conn.query("SELECT head,removed FROM #{TestData.tablename} WHERE oid=#{@td.oid}")
-    ret.num_rows().should eql(1)
-    ret.fetch_row().should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_FALSE])
+    ret.count.should eql(1)
+    row = ret.first
+    ['head','removed'].map{|f| row[f]}.should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_FALSE])
 
     td = TestData.get(@td.oid)
     td.should be_instance_of(TestData)
@@ -1729,8 +1730,9 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に oid ひとつのみを引数に .get したときは何度実行してもキャッシュの効果で同じ object_id のものが返るが :ignore_cache => true の場合は異なること" do
     @td.save()
     ret = @conn.query("SELECT head,removed FROM #{TestData.tablename} WHERE oid=#{@td.oid}")
-    ret.num_rows().should eql(1)
-    ret.fetch_row().should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_FALSE])
+    ret.count.should eql(1)
+    row = ret.first
+    ['head','removed'].map{|f| row[f]}.should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_FALSE])
 
     td1 = TestData.get(@td.oid)
     td1.should be_instance_of(TestData)
@@ -1752,8 +1754,9 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     toid = @td.oid
     @td.remove()
     ret = @conn.query("SELECT head,removed FROM #{TestData.tablename} WHERE oid=#{toid} ORDER BY id DESC LIMIT 1")
-    ret.num_rows().should eql(1)
-    ret.fetch_row().should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_TRUE])
+    ret.count.should eql(1)
+    row = ret.first
+    ['head','removed'].map{|f| row[f]}.should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_TRUE])
 
     td = TestData.get(toid)
     td.should be_nil
@@ -1764,8 +1767,9 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     toid = @td.oid
     @td.remove()
     ret = @conn.query("SELECT head,removed FROM #{TestData.tablename} WHERE oid=#{toid} ORDER BY id DESC LIMIT 1")
-    ret.num_rows().should eql(1)
-    ret.fetch_row().should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_TRUE])
+    ret.count.should eql(1)
+    row = ret.first
+    ['head','removed'].map{|f| row[f]}.should eql([Stratum::Model::BOOL_TRUE, Stratum::Model::BOOL_TRUE])
 
     td = TestData.get(toid, :force_all => true)
     td.should_not be_nil
@@ -1776,11 +1780,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に oid ひとつと :before => anytime を引数に .get したとき removed フラグの立っていない、かつ anytime より前で最新のオブジェクトひとつが返ること" do
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=50,testex1_oids='51,52',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=10279,head='0',removed='0',#{vals}")
-    first_id = @conn.insert_id()
+    first_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=10279,head='0',removed='0',#{vals}")
-    second_id = @conn.insert_id()
+    second_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 09:01:00',oid=10279,head='1',removed='0',#{vals}")
-    third_id = @conn.insert_id()
+    third_id = @conn.last_id()
 
     td = TestData.get(10279, :before => Mysql::Time.new(2010, 8, 21))
     td.should_not be_nil
@@ -1798,11 +1802,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に oid ひとつと :before => anytime を引数に .get したとき anytime より前にオブジェクトが存在しない場合は nil が返ること" do
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=50,testex1_oids='51,52',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=10280,head='0',removed='0',#{vals}")
-    first_id = @conn.insert_id()
+    first_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=10280,head='0',removed='0',#{vals}")
-    second_id = @conn.insert_id()
+    second_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 09:01:00',oid=10280,head='1',removed='0',#{vals}")
-    third_id = @conn.insert_id()
+    third_id = @conn.last_id()
 
     td = TestData.get(10279, :before => Time.local(2010,8,15))
     td.should be_nil
@@ -1815,15 +1819,15 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex1coid = 52
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=#{ex1aoid},testex1_oids='#{ex1boid},#{ex1coid}',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid},head='0',removed='0',#{vals}")
-    td_1st_id = @conn.insert_id()
+    td_1st_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1aoid},head='0',removed='0',name='ex1a'")
-    ex1_1st_id = @conn.insert_id()
+    ex1_1st_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{tdoid},head='0',removed='0',#{vals}")
-    td_2nd_id = @conn.insert_id()
+    td_2nd_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{ex1aoid},head='1',removed='0',name='ex1a'")
-    ex1_2nd_id = @conn.insert_id()
+    ex1_2nd_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 09:01:00',oid=#{tdoid},head='1',removed='0',#{vals}")
-    td_3rd_id = @conn.insert_id()
+    td_3rd_id = @conn.last_id()
     
     td = TestData.get(tdoid, :before => Time.local(2010,8,20,0,0,0))
     td.should_not be_nil
@@ -1852,23 +1856,23 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex1coid = 62
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=#{ex1aoid},operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid},head='0',removed='0',#{vals},testex1_oids='#{ex1boid},#{ex1coid}'")
-    td_1st_id = @conn.insert_id()
+    td_1st_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1boid},head='0',removed='0',name='ex1b'")
-    ex1b_1st_id = @conn.insert_id()
+    ex1b_1st_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1coid},head='0',removed='0',name='ex1c'")
-    ex1c_1st_id = @conn.insert_id()
+    ex1c_1st_id = @conn.last_id()
 
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{tdoid},head='0',removed='0',#{vals},testex1_oids='#{ex1boid}'")
-    td_2nd_id = @conn.insert_id()
+    td_2nd_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{ex1boid},head='1',removed='0',name='ex1b'")
-    ex1b_2nd_id = @conn.insert_id()
+    ex1b_2nd_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:51',oid=#{ex1coid},head='0',removed='0',name='ex1c'")
-    ex1c_2nd_id = @conn.insert_id()
+    ex1c_2nd_id = @conn.last_id()
 
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 09:01:00',oid=#{tdoid},head='1',removed='0',#{vals},testex1_oids='#{ex1boid},#{ex1coid}'")
-    td_3rd_id = @conn.insert_id()
+    td_3rd_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-23 09:01:32',oid=#{ex1coid},head='1',removed='0',name='ex1c'")
-    ex1c_3rd_id = @conn.insert_id()
+    ex1c_3rd_id = @conn.last_id()
 
     td = TestData.get(tdoid, :before => Time.local(2010,8,20,0,0,0))
     td.should_not be_nil
@@ -1906,7 +1910,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10283
     tdoid2 = 10284
     ret = @conn.query("SELECT * FROM #{TestData.tablename} WHERE oid=#{tdoid1} or oid=#{tdoid2}")
-    ret.num_rows().should eql(0)
+    ret.count.should eql(0)
 
     ary = TestData.get(tdoid1, tdoid2)
     ary.should eql([])
@@ -1920,11 +1924,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10287
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
-    id1 = @conn.insert_id()
+    id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
-    id2 = @conn.insert_id()
+    id2 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
-    id3 = @conn.insert_id()
+    id3 = @conn.last_id()
     
     ary = TestData.get(tdoid1, tdoid2, tdoid3)
     ary.size.should eql(3)
@@ -1937,9 +1941,9 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10290
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
-    id1 = @conn.insert_id()
+    id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
-    id3 = @conn.insert_id()
+    id3 = @conn.last_id()
 
     ary = TestData.get(tdoid1, tdoid2, tdoid3)
     ary.size.should eql(2)
@@ -1953,11 +1957,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10293
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
-    id1 = @conn.insert_id()
+    id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
-    id2 = @conn.insert_id()
+    id2 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
-    id3 = @conn.insert_id()
+    id3 = @conn.last_id()
 
     td2 = TestData.get(tdoid2)
     td2.remove()
@@ -1974,11 +1978,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10296
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
-    id1 = @conn.insert_id()
+    id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
-    id2 = @conn.insert_id()
+    id2 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
-    id3 = @conn.insert_id()
+    id3 = @conn.last_id()
 
     td1 = TestData.get(tdoid1)
     td1.remove()
@@ -1997,15 +2001,15 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10299
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
-    id1 = @conn.insert_id()
+    id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
-    id2 = @conn.insert_id()
+    id2 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
-    id3 = @conn.insert_id()
+    id3 = @conn.last_id()
 
     td2 = TestData.get(tdoid2)
     td2.remove()
-    td2id = @conn.query("SELECT id FROM #{TestData.tablename} WHERE oid=#{tdoid2} ORDER BY id DESC LIMIT 1").fetch_row.first.to_i
+    td2id = @conn.query("SELECT id FROM #{TestData.tablename} WHERE oid=#{tdoid2} ORDER BY id DESC LIMIT 1").first['id']
 
     ary = TestData.get(tdoid1, tdoid2, tdoid3, :force_all => true)
     ary.size.should eql(3)
@@ -2019,19 +2023,19 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10303
     vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals}")
-    id1_1st = @conn.insert_id()
+    id1_1st = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals}")
-    id2_1st = @conn.insert_id()
+    id2_1st = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals}")
-    id3_1st = @conn.insert_id()
+    id3_1st = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 18:15:33',oid=#{tdoid1},head='1',removed='1',#{vals}")
-    id1_2nd = @conn.insert_id()
+    id1_2nd = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 17:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
-    id2_2nd = @conn.insert_id()
+    id2_2nd = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 17:15:33',oid=#{tdoid3},head='0',removed='0',#{vals}")
-    id3_2nd = @conn.insert_id()
+    id3_2nd = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 18:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
-    id3_3rd = @conn.insert_id()
+    id3_3rd = @conn.last_id()
 
     ary = TestData.get(tdoid1, tdoid2, tdoid3)
     ary.size.should eql(2)
@@ -2056,7 +2060,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   
   it "に oid ひとつを引数に .retrospect し、その oid のレコードが実際には存在しない場合 nil が返ること" do
     tdoid = 10307
-    @conn.query("SELECT count(*) FROM #{TestData.tablename} WHERE oid=#{tdoid}").fetch_row.first.should eql("0")
+    @conn.query("SELECT count(*) FROM #{TestData.tablename} WHERE oid=#{tdoid}").first['count(*)'].should eql(0)
 
     ary = TestData.retrospect(tdoid)
     ary.should be_nil
@@ -2836,7 +2840,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   end
 
   it "に :taglist のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
-    (@conn.query("SHOW VARIABLES LIKE 'ft_min_word_len'").fetch_hash['Value'].to_i == 4).should be_true
+    (@conn.query("SHOW VARIABLES LIKE 'ft_min_word_len'").first['Value'].to_i == 4).should be_true
 
     @conn.query("DELETE FROM #{TestTag.tablename}")
     @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9901,tags='HOGE POSXX 20100825-15:18 blog-new Web'")
@@ -3520,7 +3524,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に、単一の適当な条件で .query_or_create を行って、単一の既存オブジェクトが該当する場合にそのオブジェクトが返ること" do
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=8011,name='hoge1',operated_by=1")
-    xid = @conn.insert_id()
+    xid = @conn.last_id()
 
     ex1 = TestEX1.query_or_create(:name => 'hoge1')
     ex1.id.should eql(xid)
@@ -3530,7 +3534,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に、複数の適当な条件で .query_or_create を行って、単一の既存オブジェクトが該当する場合にそのオブジェクトが返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=8111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1'")
-    xid = @conn.insert_id()
+    xid = @conn.last_id()
     
     td = TestData.query_or_create(:flag1 => true, :flag2 => false, :string1 => 'HOGEPOS')
     td.id.should eql(xid)
@@ -3542,7 +3546,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に、単一の適当な条件で .query_or_create を行って、該当するオブジェクトがひとつもない場合に新しく作られたオブジェクトが返り、条件に指定した値がセットされていること" do
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=8021,name='hoge1',operated_by=1")
-    xid = @conn.insert_id()
+    xid = @conn.last_id()
 
     ex1 = TestEX1.query_or_create(:name => 'hoge12')
     ex1.should_not be_nil
@@ -3554,7 +3558,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に、複数の適当な条件で .query_or_create を行って、該当するオブジェクトがひとつもない場合に新しく作られたオブジェクトが返り、条件に指定した値すべてがセットされていること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=8121,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1'")
-    xid = @conn.insert_id()
+    xid = @conn.last_id()
     
     td = TestData.query_or_create(:flag1 => true, :flag2 => false, :string1 => 'HOGEMOGE')
     td.should_not be_nil

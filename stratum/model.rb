@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-require 'mysql'
+require 'mysql2'
 require_relative './json'
 
 class Mysql
@@ -711,13 +711,15 @@ module Stratum
       end
 
       if keys.size > 0
-        oidunit = 'oid=?'
-        cond = oidunit.dup
-        i = 1
-        while i < keys.length
-          cond += (' OR ' + oidunit)
-          i += 1
-        end
+        # oidunit = 'oid=?'
+        # cond = oidunit.dup
+        # i = 1
+        # while i < keys.length
+        #   cond += (' OR ' + oidunit)
+        #   i += 1
+        # end
+        cond = 'oid IN (' + Array.new(keys.size, '?').join(',') + ')'
+
         fieldnames = self.columns.join(',')
 
         head_cond = opts[:before] ? "" : " AND head=?"
@@ -731,16 +733,23 @@ module Stratum
         keys.push(opts[:before]) if opts[:before]
 
         Stratum.conn do |conn|
-          st = conn.prepare(sql)
-          st.execute(*keys)
-          while pairs = st.fetch_hash
-            obj = self.new(pairs, :before => opts[:before])
+          # st = conn.prepare(sql)
+          # st.execute(*keys)
+          # while pairs = st.fetch_hash
+          #   obj = self.new(pairs, :before => opts[:before])
+          #   models[obj.oid] = obj
+          #   if obj and not opts[:before] and not opts[:ignore_cache]
+          #     ModelCache.set(obj)
+          #   end
+          # end
+          # st.free_result
+          conn.query(sql, keys).each do |row|
+            obj = self.new(row, :before => opts[:before])
             models[obj.oid] = obj
             if obj and not opts[:before] and not opts[:ignore_cache]
               ModelCache.set(obj)
             end
           end
-          st.free_result
         end
       end
 
@@ -754,19 +763,26 @@ module Stratum
       single_arg = (oids.size == 1 and not oids.first.is_a?(Array))
       oids = oids.flatten
       fieldnames = self.columns.join(',')
-      sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE " + Array.new(oids.size, 'oid=?').join(' OR ') + ' ORDER BY id DESC'
+      sql = "SELECT #{fieldnames} FROM #{self.tablename} WHERE oid IN (" + Array.new(oids.size, '?').join(',') + ") ORDER BY id DESC"
 
       result = {}
       Stratum.conn do |conn|
-        st = conn.prepare(sql)
-        st.execute(*(oids.map{|i| i.to_i}))
+        # st = conn.prepare(sql)
+        # st.execute(*(oids.map{|i| i.to_i}))
 
-        while pairs = st.fetch_hash
-          obj = self.new(pairs, :before => pairs['inserted_at'].addseconds(2))
-          result[obj.oid] = [] unless result[obj.oid]
+        # while pairs = st.fetch_hash
+        #   obj = self.new(pairs, :before => pairs['inserted_at'].addseconds(2))
+        #   result[obj.oid] = [] unless result[obj.oid]
+        #   result[obj.oid].push(obj)
+        # end
+        # st.free_result
+        conn.query(sql, oids.map(&:to_i)).each do |row|
+          # from 2 seconds later of specifiec Time (of specified object's inserted_at)
+          # '2' is magic number... (in almost all cases, '1' works good, but not at high loadavg)
+          obj = self.new(row, :before => row['inserted_at'] + 2)
+          result[obj.oid] ||= []
           result[obj.oid].push(obj)
         end
-        st.free_result
       end
       
       return result[oids.first.to_i] if single_arg
@@ -779,12 +795,15 @@ module Stratum
       args.push(to) if to
       result_oids = []
       Stratum.conn do |conn|
-        st = conn.prepare(sql)
-        st.execute(*args)
-        st.each do |values|
-          result_oids.push(values.first)
+        # st = conn.prepare(sql)
+        # st.execute(*args)
+        # st.each do |values|
+        #   result_oids.push(values.first)
+        # end
+        # st.free_result
+        conn.query(sql, args).each do |row|
+          result_oids.push(row['oid'])
         end
-        st.free_result
       end
 
       return [] if result_oids.size < 1
@@ -816,17 +835,28 @@ module Stratum
       result = nil
       Stratum.conn do |conn|
         columns_s = columns.join(",")
-        columns_n = columns.size
-        st = conn.prepare("SELECT oid,#{columns_s} FROM #{self.tablename} WHERE head=? AND removed=?")
-        st.execute(BOOL_TRUE, BOOL_FALSE)
+        # columns_n = columns.size
+        # st = conn.prepare("SELECT oid,#{columns_s} FROM #{self.tablename} WHERE head=? AND removed=?")
+        # st.execute(BOOL_TRUE, BOOL_FALSE)
+        sql = "SELECT oid,#{columns_s} FROM #{self.tablename} WHERE head=? AND removed=?"
         oids = []
         if lowlevel
-          while pair = st.fetch
-            oids.push(pair[0]) if yield *(pair[1,columns_n])
+          # while pair = st.fetch
+          #   oids.push(pair[0]) if yield *(pair[1,columns_n])
+          # end
+          conn.query(sql, BOOL_TRUE, BOOL_FALSE).each(:as => :array) do |row|
+            oid = row[0]
+            values = row[1..-1]
+            oids.push(oid) if yield *values
           end
         else
-          while pair = st.fetch
-            oids.push(pair[0]) if yield *(conv.call(pair[1,columns_n]))
+          # while pair = st.fetch
+          #   oids.push(pair[0]) if yield *(conv.call(pair[1,columns_n]))
+          # end
+          conn.query(sql, BOOL_TRUE, BOOL_FALSE).each(:as => :array) do |row|
+            oid = row[0]
+            values = conv.call(row[1..-1])
+            oids.push(oid) if yield *values
           end
         end
         result = oidonly ? oids : self.get(oids)
@@ -851,16 +881,23 @@ module Stratum
 
       result = []
       Stratum.conn do |conn|
-        st = conn.prepare(sql)
-        st.execute(BOOL_TRUE, BOOL_FALSE)
-        while pairs = st.fetch_hash
-          obj = self.new(pairs)
+        # st = conn.prepare(sql)
+        # st.execute(BOOL_TRUE, BOOL_FALSE)
+        # while pairs = st.fetch_hash
+        #   obj = self.new(pairs)
+        #   if obj
+        #     ModelCache.set(obj)
+        #   end
+        #   result.push(obj)
+        # end
+        # st.free_result
+        conn.query(sql, BOOL_TRUE, BOOL_FALSE).each do |row|
+          obj = self.new(row)
           if obj
             ModelCache.set(obj)
           end
           result.push(obj)
         end
-        st.free_result
       end
       if opts[:sorted]
         result.sort!
@@ -997,19 +1034,33 @@ module Stratum
       result = []
       if count
         Stratum.conn do |conn|
-          st = conn.prepare(sql)
-          st.execute(*vals)
-          result = st.fetch.first.to_i
-          st.free_result
+          # st = conn.prepare(sql)
+          # st.execute(*vals)
+          # result = st.fetch.first.to_i
+          # st.free_result
+          conn.query(sql, vals).each(:as => :array) do |row|
+            result = row[0]
+          end
         end
       elsif selector
         result_set = {}
         Stratum.conn do |conn|
-          st = conn.prepare(sql)
-          st.execute(*vals)
+          # st = conn.prepare(sql)
+          # st.execute(*vals)
 
-          while pairs = st.fetch_hash
-            obj = oidonly ? pairs['oid'].to_i : self.new(pairs)
+          # while pairs = st.fetch_hash
+          #   obj = oidonly ? pairs['oid'].to_i : self.new(pairs)
+          #   if result_set[obj.oid]
+          #     if (selector == :first and result_set[obj.oid].id > obj.id) or (selector == :last and result_set[obj.oid].id < obj.id)
+          #       result_set[obj.oid] = obj
+          #     end
+          #   else
+          #     result_set[obj.oid] = obj
+          #   end
+          # end
+          # st.free_result
+          conn.query(sql, vals).each do |row|
+            obj = oidonly ? row['oid'].to_i : self.new(row)
             if result_set[obj.oid]
               if (selector == :first and result_set[obj.oid].id > obj.id) or (selector == :last and result_set[obj.oid].id < obj.id)
                 result_set[obj.oid] = obj
@@ -1018,23 +1069,32 @@ module Stratum
               result_set[obj.oid] = obj
             end
           end
-          st.free_result
         end
         result = result_set.values
       else
         Stratum.conn do |conn|
-          st = conn.prepare(sql)
-          st.execute(*vals)
+          # st = conn.prepare(sql)
+          # st.execute(*vals)
 
           if oidonly and not before
-            while vals = st.fetch
-              result.push(vals.first.to_i)
+            # while vals = st.fetch
+            #   result.push(vals.first.to_i)
+            # end
+            conn.query(sql, vals).each do |row|
+              result.push(row['oid'].to_i)
             end
           elsif before
             id_pairs = {}
-            while vals = st.fetch
-              id = vals.first.to_i
-              oid = vals.last.to_i
+            # while vals = st.fetch
+            #   id = vals.first.to_i
+            #   oid = vals.last.to_i
+            #   if not id_pairs[oid] or id > id_pairs[oid]
+            #     id_pairs[oid] = id
+            #   end
+            # end
+            conn.query(sql, vals).each do |row|
+              id = row['id'].to_i
+              oid = row['oid'].to_i
               if not id_pairs[oid] or id > id_pairs[oid]
                 id_pairs[oid] = id
               end
@@ -1050,14 +1110,20 @@ module Stratum
               end
             end
           else
-            while pairs = st.fetch_hash
-              obj = self.new(pairs)
+            # while pairs = st.fetch_hash
+            #   obj = self.new(pairs)
+            #   if strict_equality_checks.inject(true){|r,proc| r and proc.call(obj)}
+            #     result.push(obj)
+            #   end
+            # end
+            conn.query(sql, vals).each do |row|
+              obj = self.new(row)
               if strict_equality_checks.inject(true){|r,proc| r and proc.call(obj)}
                 result.push(obj)
               end
             end
           end
-          st.free_result
+          # st.free_result
         end
 
         if unique
@@ -1116,11 +1182,14 @@ module Stratum
       values = columns.map{|c| pairs[c]}
       sql = "INSERT INTO #{self.class.tablename} SET #{setpairs}"
 
-      conn = Stratum.conn
-      st = conn.prepare(sql)
-      st.execute(*values)
-      st.free_result
-      conn.release
+      # conn = Stratum.conn
+      # st = conn.prepare(sql)
+      # st.execute(*values)
+      # st.free_result
+      # conn.release
+      Stratum.conn do |conn|
+        conn.query(sql, values)
+      end
 
       self.overwrite(self.class.get(oid, :force_all => true))
       self

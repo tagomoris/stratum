@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 require 'thread'
-require 'mysql'
+require 'mysql2'
 require_relative './model'
 
 module Stratum
@@ -54,18 +54,39 @@ module Stratum
   end
 
   class Connection
-    $STRATUM_CONNECTION_DBPARAMS = []
+    $STRATUM_CONNECTION_DBPARAMS = nil
     $STRATUM_CONNECTION_POOL = []
     $STRATUM_CONNECTION_TXS = {}
 
     def self.setupped?
-      not $STRATUM_CONNECTION_DBPARAMS[0].nil?
+      not $STRATUM_CONNECTION_DBPARAMS.nil? and $STRATUM_CONNECTION_DBPARAMS[:host]
     end
 
+# :host - Defaults to "localhost".
+# :port - Defaults to 3306.
+# :socket - Defaults to "/tmp/mysql.sock".
+# :username - Defaults to "root"
+# :password - Defaults to nothing.
+# :database - The name of the database. No default, must be provided.
+# :encoding - (Optional) Sets the client encoding by executing "SET NAMES <encoding>" after connection.
+# :reconnect - Defaults to false (See MySQL documentation: dev.mysql.com/doc/refman/5.0/en/auto-reconnect.html).
+# :sslca - Necessary to use MySQL with an SSL connection.
+# :sslkey - Necessary to use MySQL with an SSL connection.
+# :sslcert - Necessary to use MySQL with an SSL connection.
+# :sslcapath - Necessary to use MySQL with an SSL connection.
+# :sslcipher - Necessary to use MySQL with an SSL connection.
     def self.setup(host=nil, user=nil, passwd=nil, db=nil, port=nil, sock=nil, flag=nil)
-      $STRATUM_CONNECTION_DBPARAMS = [host, user, passwd, db, port, sock, flag]
+      $STRATUM_CONNECTION_DBPARAMS = {
+        :host => host, :port => port, :socket => sock,
+        :username => user, :password => passwd, :database => db,
+      }
     end
 
+    # client.methods
+    # :close, :query, :escape,
+    # :info, :server_info, :encoding,
+    # :last_id, :affected_rows, 
+    # :socket, :async_result, :thread_id, :ping, :query_options,
     def self.conn
       unless self.setupped?
         raise DatabaseError, "not setupped"
@@ -95,8 +116,7 @@ module Stratum
         raise DatabaseError, "not setupped"
       end
 
-      @handler = Mysql.connect(*$STRATUM_CONNECTION_DBPARAMS)
-      @handler.charset = 'utf8'
+      @handler = Mysql2::Client.new($STRATUM_CONNECTION_DBPARAMS)
       @owned = true
       @mutex = Mutex.new
       self
@@ -136,8 +156,7 @@ module Stratum
       begin
         @owned = false
         if self.in_tx?
-          @handler.rollback()
-          @handler.autocommit(true)
+          @handler.query('ROLLBACK');
         end
       ensure
         self.release_tx()
@@ -172,6 +191,39 @@ module Stratum
       raise Stratum::TransactionOperationError, "don't use this directly. use run_in_transaction instead."
     end
 
+    def pseudo_bind(sql, values)
+      sql = sql.dup
+
+      placeholders = []
+      search_pos = 0
+      while pos = sql.index('?', search_pos)
+        placeholders.push(pos)
+        search_pos = pos + 1
+      end
+      raise ArgumentError, "mismatch between placeholders number and values arguments" if placeholders.length != values.length
+
+      while pos = placeholders.pop()
+        rawvalue = values.pop()
+        if rawvalue.nil?
+          sql[pos] = 'NULL'
+        elsif rawvalue.is_a?(Time)
+          val = rawvalue.strftime('%Y-%m-%d %H:%M:%S')
+          sql[pos] = "'" + val + "'"
+        else
+          val = @handler.escape(rawvalue.to_s)
+          sql[pos] = "'" + val + "'"
+        end
+      end
+      sql
+    end
+
+    def query(sql, *values)
+      values = values.flatten
+      # pseudo prepared statements
+      return @handler.query(sql) if values.length < 1
+      @handler.query(self.pseudo_bind(sql, values))
+    end
+
     def run_in_transaction(&blk)
       if Stratum.is_in_transaction()
         return yield self
@@ -179,22 +231,25 @@ module Stratum
 
       begin
         self.set_tx()
-        @handler.autocommit(false)
+        @handler.query('BEGIN');
 
         yield self
       rescue
-        @handler.rollback()
+        @handler.query('ROLLBACK');
         Stratum::ModelCache.flush()
         raise
       ensure
         unless $! # reach ensure without any exceptions
-          @handler.commit()
+          @handler.query('COMMIT');
         end
-        @handler.autocommit(true)
         self.release_tx()
       end
     end
 
+    # h.methods
+    # :close, :query, :escape, :info, :server_info, :socket, :async_result,
+    # :last_id, :affected_rows, :thread_id, :ping, :encoding, :query_options,
+    # and Default Object/ObjectClass methods
     def method_missing(name, *args)
       @handler.send(name, *args)
     end

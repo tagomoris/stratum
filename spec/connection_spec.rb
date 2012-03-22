@@ -18,13 +18,13 @@ DATABASE = 'testdb'
 
 describe Stratum::Connection, "が使われる前" do
   before do
-    $STRATUM_CONNECTION_DBPARAMS = []
+    $STRATUM_CONNECTION_DBPARAMS = nil
     $STRATUM_CONNECTION_POOL = []
     $STRATUM_CONNECTION_TXS = {}
   end
 
   after do
-    $STRATUM_CONNECTION_DBPARAMS = []
+    $STRATUM_CONNECTION_DBPARAMS = nil
     $STRATUM_CONNECTION_POOL = []
     $STRATUM_CONNECTION_TXS = {}
   end
@@ -46,26 +46,26 @@ describe Stratum::Connection, "が使われる前" do
 
     Stratum::Connection.setup(host, user, pass, db, port, sock, flag)
     conn, params, txs = Stratum::Connection.dump_internals()
+    # p Stratum::Connection.dump_internals()
+    # => [[], {:host=>"hostnam", :port=>1, :socket=>"/a/socket/pass", :username=>"username", :password=>"password", :database=>"database"}, {}]
 
     Stratum::Connection.setupped?.should be_true
 
     conn.should have(0).items
     txs.should have(0).items
-    params.should have(7).items
-    params[0].should equal(host)
-    params[1].should equal(user)
-    params[2].should equal(pass)
-    params[3].should equal(db)
-    params[4].should equal(port)
-    params[5].should equal(sock)
-    params[6].should equal(flag)
+    params.should have(6).items
+    params[:host].should equal(host)
+    params[:username].should equal(user)
+    params[:password].should equal(pass)
+    params[:database].should equal(db)
+    params[:port].should equal(port)
+    params[:socket].should equal(sock)
   end
 
   it "に .setup で初期化されたら .new してOKであること" do
     Stratum::Connection.setup(SERVERNAME, USERNAME, PASSWORD, DATABASE)
     lambda {conn = Stratum::Connection.new(); conn.close}.should_not raise_exception(Stratum::DatabaseError)
   end
-  
 end
 
 describe Stratum::Connection, "がtxなしで使われるとき" do
@@ -92,12 +92,12 @@ describe Stratum::Connection, "がtxなしで使われるとき" do
     begin
       @conn.hogemogepos()
     rescue NoMethodError => e
-      e.message.should match(/#<Mysql:0x[0-9a-f]+>\Z/)
+      e.message.should match(/for #<Mysql2::Client:0x[0-9a-f]+>\Z/)
     end
   end
 
   it "に .new したらDBに接続済みのインスタンスが返ること" do
-    @conn.host_info.should_not be_nil
+    @conn.server_info.should_not be_nil
     lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
     @conn.close()
     lambda {@conn.ping()}.should raise_exception(NoMethodError)
@@ -128,6 +128,14 @@ describe Stratum::Connection, "がtxなしで使われるとき" do
     lambda {@conn.commit()}.should raise_exception(Stratum::TransactionOperationError)
     lambda {@conn.rollback()}.should raise_exception(Stratum::TransactionOperationError)
     lambda {@conn.autocommit(true)}.should raise_exception(Stratum::TransactionOperationError)
+  end
+
+  it "に #pseudo_bind で prepared statement とほぼ同等のsql組み立てができること" do
+    sql = @conn.pseudo_bind("SELECT * FROM hogehoge WHERE id=? and status=?", [1, 'OK'])
+    sql.should eql("SELECT * FROM hogehoge WHERE id='1' and status='OK'")
+
+    sql = @conn.pseudo_bind("SELECT * FROM hogehoge WHERE status=? AND id IN (?,?,?,?,?)", ['OK', 10, 20, 30, 40, 50])
+    sql.should eql("SELECT * FROM hogehoge WHERE status='OK' AND id IN ('10','20','30','40','50')")
   end
 
   after(:all) do
@@ -171,29 +179,31 @@ describe Stratum::Connection, "でtxを使ったとき" do
 
   it "に、tx処理が正常に行えること" do
     conn2 = Stratum::Connection.new()
-    num = @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
-    conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
+    #num = @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
+    num = @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i
+    # conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
+    conn2.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
     @conn.run_in_transaction do |c|
       c.query("INSERT INTO testex1 SET oid=1,name='tagomoris',operated_by=0")
 
-      c.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
-      conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
+      c.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
+      conn2.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
     end
-    @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
-    conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
+    @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
+    conn2.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
 
     conn2.close()
   end
 
   it "に、tx処理のブロック中でreturnしてもcommitされること" do 
     conn2 = Stratum::Connection.new()
-    num = conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
-    @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
+    num = conn2.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i
+    @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
 
     def self.dummyfunc1(conn, num, val1, val2)
       conn.run_in_transaction do |c|
         c.query("INSERT INTO testex1 SET oid=1,name='tagomoris',operated_by=0")
-        count = c.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
+        count = c.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i
         count.should eql(num + 1)
         return val1 if count == num + 1
         val2
@@ -203,21 +213,21 @@ describe Stratum::Connection, "でtxを使ったとき" do
     ret = dummyfunc1(@conn, num, 'pre', 'post')
     ret.should eql('pre')
     
-    @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
-    conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
+    @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
+    conn2.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
 
     conn2.close()
   end
 
   it "に、tx処理中で例外発生時にはrollbackされること" do 
     conn2 = Stratum::Connection.new()
-    num = conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
-    @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
+    num = conn2.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i
+    @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
 
     def self.dummyfunc2(conn, num)
       conn.run_in_transaction do |c|
         c.query("INSERT INTO testex1 SET oid=1,name='tagomoris',operated_by=0")
-        count = c.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
+        count = c.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i
         count.should eql(num + 1)
         raise StandardError
         true
@@ -231,18 +241,18 @@ describe Stratum::Connection, "でtxを使ったとき" do
     else
       false.should be_true # this block not be run in any case
     end
-    @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
-    conn2.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
+    @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
+    conn2.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
 
     conn2.close()
   end
 
   it "に、tx処理中で #release されても何も起きないこと" do
-    num = @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
+    num = @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i
     @conn.run_in_transaction do |c|
       conn = Stratum.conn()
       conn.query("INSERT INTO testex1 SET oid=1,name='tagomoris',operated_by=0")
-      conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
+      conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
       conn.release()
 
       c.owned?.should be_true
@@ -253,22 +263,22 @@ describe Stratum::Connection, "でtxを使ったとき" do
 
     # query with un-owned connection (DANGER!)
     lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
-    @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
+    @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
   end
 
   it "に、tx処理中で #close されたら例外が発生しrollbackされること" do
-    num = @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i
+    num = @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i
     lambda {
       @conn.run_in_transaction do |c|
         c.query("INSERT INTO testex1 SET oid=1,name='tagomoris',operated_by=0")
-        c.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num + 1)
+        c.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
         c.close()
       end
     }.should raise_exception(Stratum::TransactionOperationError)
     @conn.owned?.should be_true
     @conn.in_tx?.should be_false
 
-    @conn.query("SELECT count(*) FROM testex1").fetch_hash['count(*)'].to_i.should eql(num)
+    @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
     lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
   end
 

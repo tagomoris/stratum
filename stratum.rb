@@ -48,7 +48,7 @@ module Stratum
       c = Stratum.conn()
     end
     c.query("UPDATE oids SET id=LAST_INSERT_ID(id+1)")
-    newid = c.insert_id()
+    newid = c.last_id()
     if conn.nil?
       c.release
     end

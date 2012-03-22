@@ -1,4 +1,4 @@
 source "http://rubygems.org"
 
-gem 'ruby-mysql', '2.9.3'
+gem 'mysql2', '0.3.11'
 gem 'rspec'
