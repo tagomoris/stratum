@@ -2,17 +2,15 @@
 # -*- coding: utf-8 -*-
 
 require 'rubygems'
-require 'mysql'
+require 'mysql2'
 
 module TestDatabase
   def self.prepare
-    conn = Mysql.connect('localhost', 'root', nil, nil)
-    conn.charset = 'utf8'
-    conn.query_with_result = false
+    conn = Mysql2::Client.new(:host => 'localhost', :username => 'root')
     conn.query('CREATE DATABASE testdb')
     conn.close()
 
-    conn = Mysql.connect('localhost', 'root', nil, 'testdb')
+    conn = Mysql2::Client.new(:host => 'localhost', :username => 'root', :database => 'testdb')
     conn.query(<<-EOSQL
 CREATE TABLE oids (
 id INT PRIMARY KEY NOT NULL AUTO_INCREMENT
@@ -116,12 +114,8 @@ EOSQL
   end
 
   def self.drop
-    conn = Mysql.connect('localhost', 'root', nil, nil)
-    conn.charset = 'utf8'
-    conn.query_with_result = false
-
+    conn = Mysql2::Client.new(:host => 'localhost', :username => 'root')
     conn.query('DROP DATABASE testdb')
-
     conn.close()
   end
 end

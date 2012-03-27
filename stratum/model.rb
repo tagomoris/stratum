@@ -578,7 +578,11 @@ module Stratum
       self.write_field_ref_by_id(fname, id)
 
       if pre_oid != id
-        pre_value.released(self) if pre_value
+        if pre_value
+          owned_oids = []
+          oids = self.class.fields.select{|f| [:ref,:reflist].include? self.class.datatype(f) }.map{|f| self.read_field_by_id(f)}.flatten
+          pre_value.released(self) unless oids.include?(pre_oid)
+        end
         value.retained(self) if value
       end
 
@@ -670,7 +674,13 @@ module Stratum
 
       self.write_field_reflist_by_id(fname, ids)
 
-      released_objs.each {|v| v.released(self)}
+      if released_objs.size > 0
+        owned_oids = []
+        oids = self.class.fields.select{|f| [:ref,:reflist].include? self.class.datatype(f) }.map{|f| self.read_field_by_id(f)}.flatten
+        released_objs.each {|v|
+          v.released(self) unless oids.include?(v.oid)
+        }
+      end
       retained_objs.each {|v| v.retained(self)}
 
       value

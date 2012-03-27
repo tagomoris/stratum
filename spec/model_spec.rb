@@ -1318,11 +1318,12 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     x2a = TestEX2.new
     x2b = TestEX2.new
 
+    # ex1
     td.testex1 = x1a
-    td.testex1s = [x1b, x1a]
+    td.testex1s = [x1b,x1a]
     x1a.data_by_id.should eql(td.oid)
     x1b.data_by_id.should eql(td.oid)
-    td.ex1_ex = x1a
+    # ex2
     td.ex2s_ex = [x2a, x2b]
     x2a.datas_by_id.should include(td.oid)
     x2b.datas_by_id.should include(td.oid)
@@ -1333,9 +1334,9 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     x2b.save
 
     td.testex1 = nil
-    TestEX1.get(x1a.oid).data_by_id.should be_nil
     td.testex1s = [x1b]
     TestEX1.get(x1a.oid).data_by_id.should be_nil
+
     TestEX1.get(x1b.oid).data_by_id.should eql(td.oid)
 
     td.ex2s_ex = []
@@ -1368,6 +1369,33 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     TestEX2.get(x2b.oid).datas_by_id.should_not include(td.oid)
   end
 
+  it "に :reflist のフィールドへの代入操作においてクリアされたオブジェクトへの参照が他のフィールドに残っていた場合は #released が呼ばれないこと" do
+    td = TestData.new
+    td.save
+
+    x1a = TestEX1.new
+    x1a.save
+    x1b = TestEX1.new
+
+    td.testex1 = x1a
+    td.testex1s = [x1a]
+
+    td.saved?.should be_false
+    x1a.saved?.should be_true
+    
+    TestEX1.get(x1a.oid).data_by_id.should eql(td.oid)
+
+    td.testex1s = [x1b]
+    td.saved?.should be_false
+    x1a.saved?.should be_true
+    TestEX1.get(x1a.oid).data_by_id.should eql(td.oid)
+    
+    td.testex1_by_id.should eql(x1a.oid)
+    td.testex1 = nil
+    td.saved?.should be_false
+    x1a.saved?.should be_true
+    TestEX1.get(x1a.oid).data_by_id.should eql(nil)
+  end
 end
 
 describe Stratum::Model, "のオブジェクトのデータを保存するとき" do
@@ -1408,8 +1436,7 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
 
   it "に #insert 呼び出しで必ず id と inserted_at にはDBの自動挿入によるものがセットされること" do
     @td.raw_values['id'] = 50940
-    now = Time.now
-    now_my = Mysql::Time.new(now.year, now.month, now.day + 1, now.hour, now.min, now.sec)
+    now_my = Time.now - 300
     @td.raw_values['inserted_at'] = now_my
 
     @td.insert()
@@ -1786,13 +1813,13 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 09:01:00',oid=10279,head='1',removed='0',#{vals}")
     third_id = @conn.last_id()
 
-    td = TestData.get(10279, :before => Mysql::Time.new(2010, 8, 21))
+    td = TestData.get(10279, :before => Time.local(2010, 8, 21))
     td.should_not be_nil
     td.should be_instance_of(TestData)
     td.id.should eql(second_id)
     td.head.should be_false
     
-    td = TestData.get(10279, :before => Mysql::Time.new(2010, 9, 25))
+    td = TestData.get(10279, :before => Time.local(2010, 9, 25))
     td.should_not be_nil
     td.should be_instance_of(TestData)
     td.id.should eql(third_id)
