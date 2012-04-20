@@ -130,14 +130,6 @@ describe Stratum::Connection, "がtxなしで使われるとき" do
     lambda {@conn.autocommit(true)}.should raise_exception(Stratum::TransactionOperationError)
   end
 
-  it "に #pseudo_bind で prepared statement とほぼ同等のsql組み立てができること" do
-    sql = @conn.pseudo_bind("SELECT * FROM hogehoge WHERE id=? and status=?", [1, 'OK'])
-    sql.should eql("SELECT * FROM hogehoge WHERE id='1' and status='OK'")
-
-    sql = @conn.pseudo_bind("SELECT * FROM hogehoge WHERE status=? AND id IN (?,?,?,?,?)", ['OK', 10, 20, 30, 40, 50])
-    sql.should eql("SELECT * FROM hogehoge WHERE status='OK' AND id IN ('10','20','30','40','50')")
-  end
-
   after(:all) do
     TestDatabase.drop()
   end

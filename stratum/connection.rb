@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 require 'thread'
-require 'mysql2'
+require 'mysql2-cs-bind'
 require_relative './model'
 
 module Stratum
@@ -116,10 +116,14 @@ module Stratum
         raise DatabaseError, "not setupped"
       end
 
-      @handler = Mysql2::Client.new($STRATUM_CONNECTION_DBPARAMS)
+      @handler = self.connect
       @owned = true
       @mutex = Mutex.new
       self
+    end
+
+    def connect
+      Mysql2::Client.new($STRATUM_CONNECTION_DBPARAMS.merge({:reconnect => true}))
     end
 
     def set_tx
@@ -191,37 +195,22 @@ module Stratum
       raise Stratum::TransactionOperationError, "don't use this directly. use run_in_transaction instead."
     end
 
-    def pseudo_bind(sql, values)
-      sql = sql.dup
-
-      placeholders = []
-      search_pos = 0
-      while pos = sql.index('?', search_pos)
-        placeholders.push(pos)
-        search_pos = pos + 1
-      end
-      raise ArgumentError, "mismatch between placeholders number and values arguments" if placeholders.length != values.length
-
-      while pos = placeholders.pop()
-        rawvalue = values.pop()
-        if rawvalue.nil?
-          sql[pos] = 'NULL'
-        elsif rawvalue.is_a?(Time)
-          val = rawvalue.strftime('%Y-%m-%d %H:%M:%S')
-          sql[pos] = "'" + val + "'"
+    def query(sql, *values)
+      begin
+        @handler.xquery(sql, *values, {})
+      rescue Mysql2::Error => e
+        if e.message == 'Lost connection to MySQL server during query'
+          begin
+            @handler.close
+          rescue Mysql2::Error
+            # ignore
+          end
+          @handler = self.connect
+          self.query(sql, *values)
         else
-          val = @handler.escape(rawvalue.to_s)
-          sql[pos] = "'" + val + "'"
+          raise
         end
       end
-      sql
-    end
-
-    def query(sql, *values)
-      values = values.flatten
-      # pseudo prepared statements
-      return @handler.query(sql) if values.length < 1
-      @handler.query(self.pseudo_bind(sql, values))
     end
 
     def run_in_transaction(&blk)
