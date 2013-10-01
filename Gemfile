@@ -1,4 +1,4 @@
 source "http://rubygems.org"
 
-gem 'mysql2-cs-bind'
-gem 'rspec'
+# Specify your gem's dependencies in norikra.gemspec
+gemspec
