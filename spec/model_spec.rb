@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-require_relative '../stratum'
+require 'stratum'
 
 require_relative './testdatabase'
 require_relative './testdatamodel'
@@ -136,23 +136,18 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     TestData.ref_fields_of(TestEX1).should eql([:testex1, :testex1s, :ex1_ex])
     TestData.ref_fields_of(TestEX2).should eql([:testex2, :testex2s, :ex2s_ex])
   end
-  
 
   it "に :empty を指定するときは :allowed/:ok のみ許可され、内部状態としては true に変換されること" do
-    lambda {
-      class Test06c < Stratum::Model
-        field :h1, :string, :length => 20, :empty => :allowed
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
+    class Test06c < Stratum::Model
+      field :h1, :string, :length => 20, :empty => :allowed
+    end
     Test06c.definition(:h1)[:empty].should equal(true)
 
-    lambda {
-      class Test06d < Stratum::Model
-        field :h2, :stringlist, :separator =>',', :length => 20, :empty => :ok
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
+    class Test06d < Stratum::Model
+      field :h2, :stringlist, :separator =>',', :length => 20, :empty => :ok
+    end
     Test06d.definition(:h2)[:empty].should equal(true)
-    
+
     lambda {
       class Test06e < Stratum::Model
         field :h3, :ref, :model => 'Model20', :empty => true
@@ -161,13 +156,10 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
   end
 
   it "に :bool は :default を要求すること" do
-    lambda {
-      class Test07a < Stratum::Model
-        field :f71, :bool, :default => false
-        field :f72, :bool, :default => true
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
-    
+    class Test07a < Stratum::Model
+      field :f71, :bool, :default => false
+      field :f72, :bool, :default => true
+    end
     lambda {
       class Test07b < Stratum::Model
         field :f73, :bool
@@ -192,24 +184,15 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
   end
 
   it "に :string はvalidation用として :selector/:length/:validator のどれかを要求すること" do
-    lambda {
-      class Test09a < Stratum::Model
-        field :f9, :string, :selector => ['a']
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
-    
-    lambda {
-      class Test09b < Stratum::Model
-        field :f9, :string, :length => 10
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
-    
-    lambda {
-      class Test09c < Stratum::Model
-        field :f9, :string, :validator => 'dummyfunc09'
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
-    
+    class Test09a < Stratum::Model
+      field :f9, :string, :selector => ['a']
+    end
+    class Test09b < Stratum::Model
+      field :f9, :string, :length => 10
+    end
+    class Test09c < Stratum::Model
+      field :f9, :string, :validator => 'dummyfunc09'
+    end
     lambda {
       class Test09d < Stratum::Model
         field :f9, :string, :empty => :allowed
@@ -218,18 +201,14 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
   end
 
   it "に :stringlist は :separator および :length を要求すること" do
-    lambda {
-      class Test10a < Stratum::Model
-        field :f10, :stringlist, :separator => ' ', :length => 10
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
-    
+    class Test10a < Stratum::Model
+      field :f10, :stringlist, :separator => ' ', :length => 10
+    end
     lambda {
       class Test10b < Stratum::Model
         field :f10, :stringlist, :separator => ' '
       end
     }.should raise_exception(Stratum::InvalidFieldDefinition)
-    
     lambda {
       class Test10a < Stratum::Model
         field :f10, :stringlist, :length => 10
@@ -246,13 +225,10 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
   end
 
   it "に :ref および :reflist は :model を要求すること" do
-    lambda {
-      class Test11a < Stratum::Model
-        field :f1, :ref, :model => 'F1Model'
-        field :f2, :reflist, :model => 'F2Model'
-      end
-    }.should_not raise_exception(Stratum::InvalidFieldDefinition)
-    
+    class Test11a < Stratum::Model
+      field :f1, :ref, :model => 'F1Model'
+      field :f2, :reflist, :model => 'F2Model'
+    end
     lambda {
       class Test11b < Stratum::Model
         field :f1, :ref
@@ -417,14 +393,14 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
       field :val2, :string, :selector => ['1', '2', '3'], :empty => :allowed
     end
     t20b = Test20b.new
-    lambda {t20b.val1 = '1'}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {t20b.val1 = '2'}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {t20b.val1 = '3'}.should_not raise_exception(Stratum::FieldValidationError)
+    t20b.val1 = '1'
+    t20b.val1 = '2'
+    t20b.val1 = '3'
     lambda {t20b.val1 = '4'}.should raise_exception(Stratum::FieldValidationError)
     lambda {t20b.val1 = ''}.should raise_exception(Stratum::FieldValidationError)
     lambda {t20b.val1 = nil}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t20b.val2 = ''}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {t20b.val2 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    t20b.val2 = ''
+    t20b.val2 = nil
   end
 
   it "に :string のvalidationで :length が正常に文字数として働いていること" do
@@ -433,13 +409,13 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
         field :val, :string, :length => 0
       end
     }.should raise_exception(Stratum::InvalidFieldDefinition)
-    
+
     lambda {
       class Test21b < Stratum::Model
         field :val, :string, :length => -1
       end
     }.should raise_exception(Stratum::InvalidFieldDefinition)
-    
+
     lambda {
       class Test21c < Stratum::Model
         field :val, :string, :length => '10'
@@ -450,14 +426,14 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
       field :val, :string, :length => 5
     end
     t21 = Test21d.new
-    lambda {t21.val = 'aaaaa'}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {t21.val = 'a'}.should_not raise_exception(Stratum::FieldValidationError)
+    t21.val = 'aaaaa'
+    t21.val = 'a'
     lambda {t21.val = 'aaaaaa'}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t21.val = 'あああああ'}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {t21.val = 'あ'}.should_not raise_exception(Stratum::FieldValidationError)
+    t21.val = 'あああああ'
+    t21.val = 'あ'
     lambda {t21.val = 'ああああああ'}.should raise_exception(Stratum::FieldValidationError)
     lambda {t21.val = 'あああああA'}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t21.val = 'ああああA'}.should_not raise_exception(Stratum::FieldValidationError)
+    t21.val = 'ああああA'
   end
 
   it "に :string のvalidationで :validator が正常に働くこと" do
@@ -477,8 +453,8 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     alphabet_str = "hogehogepospos"
     t22a = Test22a.new
     t22b = Test22b.new
-    lambda {t22a.val = number_str}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {t22b.val = alphabet_str}.should_not raise_exception(Stratum::FieldValidationError)
+    t22a.val = number_str
+    t22b.val = alphabet_str
     lambda {t22a.val = alphabet_str}.should raise_exception(Stratum::FieldValidationError)
     lambda {t22b.val = number_str}.should raise_exception(Stratum::FieldValidationError)
   end
@@ -503,25 +479,25 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     t23a = Test23a.new
     lambda {t23a.val1 = ''}.should raise_exception(Stratum::FieldValidationError)
     lambda {t23a.val1 = nil}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t23a.val2 = ''}.should_not raise_exception(Stratum::FieldValidationError)
+    t23a.val2 = ''
     t23a.raw_values[t23a.class.column_by(:val2)].should eql('')
-    lambda {t23a.val2 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    t23a.val2 = nil
     t23a.raw_values[t23a.class.column_by(:val2)].should eql('')
 
     t23b = Test23b.new
     lambda {t23b.val1 = ''}.should raise_exception(Stratum::FieldValidationError)
     lambda {t23b.val1 = nil}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t23b.val2 = ''}.should_not raise_exception(Stratum::FieldValidationError)
+    t23b.val2 = ''
     t23b.raw_values[t23b.class.column_by(:val2)].should eql('')
-    lambda {t23b.val2 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    t23b.val2 = nil
     t23b.raw_values[t23b.class.column_by(:val2)].should eql('')
 
     t23c = Test23c.new
     lambda {t23c.val1 = ''}.should raise_exception(Stratum::FieldValidationError)
     lambda {t23c.val1 = nil}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t23c.val2 = ''}.should_not raise_exception(Stratum::FieldValidationError)
+    t23c.val2 = ''
     t23c.raw_values[t23c.class.column_by(:val2)].should eql('')
-    lambda {t23c.val2 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    t23c.val2 = nil
     t23c.raw_values[t23c.class.column_by(:val2)].should eql('')
   end
 
@@ -540,16 +516,16 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
       field :val2, :stringlist, :separator => ' ', :length => 1024
     end
     t25 = Test25.new
-    lambda {t25.val = ['HOGE', 'POS', "もげ"]}.should_not raise_exception(Stratum::FieldValidationError)
+    t25.val = ['HOGE', 'POS', "もげ"]
     t25.raw_values[t25.class.column_by(:val)].should eql(['HOGE', 'POS', 'もげ'])
     lambda {t25.val = ['HOGE', 'POS', "もげ"] * 200}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t25.val = 'HOGE'}.should_not raise_exception(Stratum::FieldValidationError)
+    t25.val = 'HOGE'
     t25.raw_values[t25.class.column_by(:val)].should eql(['HOGE'])
     lambda {t25.val = 'HOGE' * 400}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t25.val = "HOGE\tPOS"}.should_not raise_exception(Stratum::FieldValidationError)
+    t25.val = "HOGE\tPOS"
     t25.raw_values[t25.class.column_by(:val)].should eql(['HOGE', 'POS'])
 
-    lambda {t25.val2 = "HOGE POS MOGE"}.should_not raise_exception(Stratum::FieldValidationError)
+    t25.val2 = "HOGE POS MOGE"
     t25.raw_values[t25.class.column_by(:val2)].should eql(['HOGE', 'POS', 'MOGE'])
   end
 
@@ -570,9 +546,9 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
       field :val, :stringlist, :separator => ' ', :length => 5
     end
     t27 = Test27.new
-    lambda {t27.val = ['AA', 'BB']}.should_not raise_exception(Stratum::FieldValidationError)
+    t27.val = ['AA', 'BB']
     lambda {t27.val = ['AAA', 'BB']}.should raise_exception(Stratum::FieldValidationError)
-    lambda {t27.val = ['ああ', 'BB']}.should_not raise_exception(Stratum::FieldValidationError)
+    t27.val = ['ああ', 'BB']
     lambda {t27.val = ['ああ', 'いBB']}.should raise_exception(Stratum::FieldValidationError)
   end
 
@@ -587,18 +563,18 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     lambda {t28.val1 = nil}.should raise_exception(Stratum::FieldValidationError)
     lambda {t28.val1 = []}.should raise_exception(Stratum::FieldValidationError)
 
-    lambda {t28.val2 = ''}.should_not raise_exception(Stratum::FieldValidationError)
+    t28.val2 = ''
     t28.raw_values[t28.class.column_by(:val2)].should eql([])
-    lambda {t28.val2 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    t28.val2 = nil
     t28.raw_values[t28.class.column_by(:val2)].should eql([])
-    lambda {t28.val2 = []}.should_not raise_exception(Stratum::FieldValidationError)
+    t28.val2 = []
     t28.raw_values[t28.class.column_by(:val2)].should eql([])
- 
-    lambda {t28.val3 = ''}.should_not raise_exception(Stratum::FieldValidationError)
+
+    t28.val3 = ''
     t28.raw_values[t28.class.column_by(:val3)].should eql([])
-    lambda {t28.val3 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    t28.val3 = nil
     t28.raw_values[t28.class.column_by(:val3)].should eql([])
-    lambda {t28.val3 = []}.should_not raise_exception(Stratum::FieldValidationError)
+    t28.val3 = []
     t28.raw_values[t28.class.column_by(:val3)].should eql([])
   end
 
@@ -623,7 +599,7 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     t31.sqlvalue(:val1).should eql(['hoge', 'hogemoge', 'hoge_pos', '日本語も', '日本語とASCIIが混ざったのも', 'ぜんぶOKデスカね?'].join(' '))
   end
 
-  it "に :taglist のvalidationで :empty の値が :ok/allowed の場合にのみ空文字列、空リストおよびnilの代入を許し、内部状態が空リストにセットされること" do 
+  it "に :taglist のvalidationで :empty の値が :ok/allowed の場合にのみ空文字列、空リストおよびnilの代入を許し、内部状態が空リストにセットされること" do
     class Test29 < Stratum::Model
       field :val1, :taglist
       field :val2, :taglist, :empty => :ok
@@ -633,11 +609,11 @@ describe Stratum::Model, "を継承してモデル定義するとき" do
     lambda {t29.val1 = nil}.should raise_exception(Stratum::FieldValidationError)
     lambda {t29.val1 = []}.should raise_exception(Stratum::FieldValidationError)
 
-    lambda {t29.val2 = ''}.should_not raise_exception(Stratum::FieldValidationError)
+    t29.val2 = ''
     t29.raw_values[t29.class.column_by(:val2)].should eql([])
-    lambda {t29.val2 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    t29.val2 = nil
     t29.raw_values[t29.class.column_by(:val2)].should eql([])
-    lambda {t29.val2 = []}.should_not raise_exception(Stratum::FieldValidationError)
+    t29.val2 = []
     t29.raw_values[t29.class.column_by(:val2)].should eql([])
   end
 end
@@ -787,9 +763,9 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     tt.tags = ['HOGE', 'POS', '20100825-14:41', 'サーバ', 'Webサーバ']
     TestTag.rawvalue(TestTag.datatype(:tags), TestTag.definition(:tags), tt.sqlvalue(:tags)).should eql(tt.raw_values[TestTag.column_by(:tags)])
   end
-  
+
   it "に #overwrite で他オブジェクトの内部表現値が正しく上書きされ、保存済みオブジェクトのフラグ(saved=trueなど)がセットされること" do
-    @conn.query("INSERT INTO testtable SET id=1777,oid=17770,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11'")
+    @conn.query("INSERT INTO testtable SET id=1777,oid=17770,flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
     td1 = TestData.get(17770)
     td2 = TestData.new
     td2.overwrite(td1)
@@ -804,7 +780,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     td2.raw_values['ref_oid'].should eql(10)
     td2.raw_values['testex1_oids'].should eql([11])
 
-    @conn.query("INSERT INTO testtags SET id=1050,oid=171,tags='ほげ サーバ1 もうWebサーバって書くの飽きてきた 20100825-14:52'")
+    @conn.query("INSERT INTO testtags SET id=1050,oid=171,tags='ほげ サーバ1 もうWebサーバって書くの飽きてきた 20100825-14:52',operated_by=1")
     tt1 = TestTag.get(171)
     tt2 = TestTag.new
     tt2.overwrite(tt1)
@@ -812,7 +788,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   end
 
   it "に、保存済みの場合は #id でid値(Integer)がとれ、未保存の場合は nil となること" do
-    @conn.query("INSERT INTO testtable SET id=1778,oid=17771,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11'")
+    @conn.query("INSERT INTO testtable SET id=1778,oid=17771,flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
     td1 = TestData.get(17771)
     td1.id.should eql(1778)
     td2 = TestData.new
@@ -827,9 +803,9 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   #   td2 = TestData.new
   #   td2.oid.should be_nil
   # end
-  
+
   it "に、保存済みの場合は #inserted_at でタイムスタンプが取得でき、未保存の場合は nil となること" do
-    @conn.query("INSERT INTO testtable SET id=1780,oid=17801,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11'")
+    @conn.query("INSERT INTO testtable SET id=1780,oid=17801,flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
     td1 = TestData.get(17801)
     td1.inserted_at.should_not be_nil
     td2 = TestData.new
@@ -837,7 +813,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   end
 
   it "に、保存済みの場合は #operated_by_id および #operated_by で操作ユーザのoidおよびAuthInfoオブジェクトが取得でき、未保存の場合は nil となること" do
-    @conn.query("INSERT INTO testtable SET id=1781,oid=17811,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11', operated_by=1")
+    @conn.query("INSERT INTO testtable SET id=1781,oid=17811,flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11', operated_by=1")
     td1 = TestData.get(17811)
     td1.operated_by_oid.should eql(1)
     td1.operated_by.name.should eql("tagomoris")
@@ -847,8 +823,8 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   end
 
   it "に、予約済みフィールド :head のBOOL_TRUE/BOOL_FALSEにしたがって true/false が得られること" do
-    @conn.query("INSERT INTO testtable SET id=1782,oid=17821,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
-    @conn.query("INSERT INTO testtable SET id=1783,oid=17831,flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
+    @conn.query("INSERT INTO testtable SET id=1782,oid=17821,flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
+    @conn.query("INSERT INTO testtable SET id=1783,oid=17831,flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1")
     @conn.query("UPDATE testtable SET head='0' WHERE id=1783")
     td1 = TestData.get(17821)
     td2 = TestData.new(@conn.query('SELECT * FROM testtable WHERE id=1783').first)
@@ -857,7 +833,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   end
   
   it "に、予約済みフィールド :removed のBOOL_TRUE/BOOL_FALSEにしたがって true/false が得られること" do
-    default_data_set = "flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1"
+    default_data_set = "flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1"
     @conn.query("INSERT into testtable SET id=1784,oid=17841,#{default_data_set},head='1',removed='0'")
     @conn.query("INSERT into testtable SET id=1785,oid=17851,#{default_data_set},head='1',removed='1'")
     @conn.query("INSERT into testtable SET id=1786,oid=17861,#{default_data_set}")
@@ -873,7 +849,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   end
 
   it "に #updatable? は head が true かつ removed が false の場合にのみ true を返し、それ以外の場合には false を返すこと" do
-    default_data_set = "flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1"
+    default_data_set = "flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1"
     @conn.query("INSERT into testtable SET id=1787,oid=17871,#{default_data_set},head='1',removed='0'")
     @conn.query("INSERT into testtable SET id=1788,oid=17881,#{default_data_set},head='1',removed='1'")
     @conn.query("INSERT into testtable SET id=1789,oid=17891,#{default_data_set},head='0',removed='0'")
@@ -893,7 +869,7 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
   end
 
   it "に .query から得た既存オブジェクトは #saved? で true を返し、値の更新後は false を返すこと、また #save のあとは true となること" do
-    default_data_set = "flag1='1',flag2='0',string1='hoge1',string3='000',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1"
+    default_data_set = "flag1='1',flag2='0',string1='hoge1',string3='000',string5='111',list2='HOGE',ref_oid=10,testex1_oids='11',operated_by=1"
     @conn.query("INSERT into testtable SET id=1791,oid=17911,#{default_data_set},head='1',removed='0'")
     td = TestData.get(17911)
     td.saved?.should be_true
@@ -904,10 +880,10 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     result = td.save
     td.should_not be_nil
     result.should_not be_nil
-    
+
     td.saved?.should be_true
   end
-  
+
   it "に .new から得た新規オブジェクトは #saved? で false を返し、値の更新後も変わらないが、 #save のあとは true となること" do
     td = TestData.new
     td.saved?.should be_false
@@ -918,9 +894,15 @@ describe Stratum::Model, "のオブジェクトへの基本的な操作を行う
     td.flag2 = false
     td.string1 = 'hoge'
     td.string3 = '000'
+    td.string5 = '111'
     td.list2 = 'HOGE'
     td.testex1_by_id = 10
     td.testex2s_by_id = 11
+
+    tex1 = TestEX1.new
+    tex1.name = "hogepos"
+    td.testex1s = [tex1]
+
     td.saved?.should be_false
 
     result = td.save
@@ -954,8 +936,8 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.testex1_by_id = 9999
     td.testex1_by_id.should eql(9999)
   end
-  
-  it "に :ref のフィールドに対して :model で指定したclassのオブジェクトが代入可能で正しく読み出せること、および内部状態が oid にセットされること" do 
+
+  it "に :ref のフィールドに対して :model で指定したclassのオブジェクトが代入可能で正しく読み出せること、および内部状態が oid にセットされること" do
     tex1 = TestEX1.new
     tex1.name = "hoge273"
     tex1.save()
@@ -966,17 +948,17 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td.testex1.name.should eql("hoge273")
     td.raw_values['ref_oid'].should eql(tex1.oid)
   end
-  
+
   it "に :ref のvalidationで :empty の値が :ok/allowed の場合にのみnilの代入を許し、内部状態がnilにセットされること" do
     td = TestData.new
-    lambda {td.testex1 = nil}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {td.testex1_by_id = nil}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {td.testex1 = nil}.should_not raise_exception(Stratum::FieldValidationError)
+    td.testex1 = nil
+    td.testex1_by_id = nil
+    td.testex1 = nil
     td.raw_values['ref_oid'].should be_nil
     lambda {td.testex2 = nil}.should raise_exception(Stratum::FieldValidationError)
     lambda {td.testex2_by_id = nil}.should raise_exception(Stratum::FieldValidationError)
   end
-  
+
   it "に :ref のフィールドに格納された値が #sqlvalue(fname) メソッドで正しく出力できること" do
     tex1 = TestEX1.new
     tex1.name = "hoge275"
@@ -1010,14 +992,13 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     tex13.save
 
     td = TestData.new
-    
     td.testex1s = tex11
     td.raw_values['testex1_oids'].should eql([tex11.oid])
 
     td.testex1s = [tex11, tex12, tex13]
     td.raw_values['testex1_oids'].should eql([tex11.oid, tex12.oid, tex13.oid])
   end
-  
+
   it "に :reflist のvalidationで :empty の値が :ok/allowed の場合にのみ空リストもしくはnilの代入を許し、内部状態が空リストにセットされること" do
     td = TestData.new
     lambda {td.testex1s = nil}.should raise_exception(Stratum::FieldValidationError)
@@ -1025,12 +1006,12 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     lambda {td.testex1s = []}.should raise_exception(Stratum::FieldValidationError)
     lambda {td.testex1s_by_id = []}.should raise_exception(Stratum::FieldValidationError)
 
-    lambda {td.testex2s = nil}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {td.testex2s_by_id = nil}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {td.testex2s = []}.should_not raise_exception(Stratum::FieldValidationError)
-    lambda {td.testex2s_by_id = []}.should_not raise_exception(Stratum::FieldValidationError)
+    td.testex2s = nil
+    td.testex2s_by_id = nil
+    td.testex2s = []
+    td.testex2s_by_id = []
   end
-  
+
   it "に :reflist のフィールドに格納された値が #sqlvalue(fname) メソッドで正しく出力できること" do
     td = TestData.new
     td.testex2s_by_id = [5,6,8,9]
@@ -1039,12 +1020,31 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
   it "に #retained(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist のうち manualmaint 指定されていないものすべてに obj がセット/挿入され、事前に #saved? == true の場合には更に #save されること" do
     td1 = TestData.new
+    td1.string1 = 'hoge'
+    td1.string3 = '000'
+    td1.string5 = '111'
+    td1.list2 = 'HOGE'
+    td1.testex1_by_id = 10
+    td1.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1026"
+    td1.testex1s = [ex]
     td1.save
     td2 = TestData.new
+    td2.string1 = 'hoge'
+    td2.string3 = '000'
+    td2.string5 = '111'
+    td2.list2 = 'HOGE'
+    td2.testex1_by_id = 10
+    td2.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1027"
+    td2.testex1s = [ex]
     td2.save
-    
+
     # unsaved なオブジェクトはsaveされないこと
     ex1 = TestEX1.new
+    ex1.name = "1047"
     ex1.save
     ex1.name = "ex1"
 
@@ -1056,12 +1056,12 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     ex1.saved?.should be_false
 
     ex2 = TestEX2.new
-    ex2.save
+    expect { ex2.save }.to raise_error
     ex2.name = "ex2"
 
     ex2.saved?.should be_false
     ex2.datas.should eql([])
-    
+
     ex2.retained(td1)
     ex2.datas_by_id.should eql([td1.oid])
     ex2.saved?.should be_false
@@ -1117,19 +1117,20 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
     # 複数のフィールドに対して実行され、ただし manualmaint 指定のものには入っていないこと
     ex = TestEX1.new
+    ex.name = "1120"
     ex.save
     ex2 = TestEX2.new
+    ex2.name = "1123"
     ex2.save
-    
+
     td1.saved?.should be_true
-    td1.testex1.should be_nil
     td1.testex2.should be_nil
     td1.testex1s.should eql([])
     td1.testex2s.should eql([])
     td1.ex1_ex_by_id.should be_nil
     td1.ex2s_ex_by_id.should eql([])
     pre_id = td1.id
-    
+
     td1.retained(ex)
     td1.saved?.should be_true
     td1.testex1_by_id.should eql(ex.oid)
@@ -1149,12 +1150,31 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
   end
   it "に #released(obj) が呼ばれると、フィールドのうち obj.class に一致するモデルの :ref/:reflist のうち manualmaint 指定されていないフィールドすべてから obj が除去され、事前に #saved? == true の場合には更に #save されること" do
     td1 = TestData.new
+    td1.string1 = 'hoge'
+    td1.string3 = '000'
+    td1.string5 = '111'
+    td1.list2 = 'HOGE'
+    td1.testex1_by_id = 10
+    td1.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1026"
+    td1.testex1s = [ex]
     td1.save
     td2 = TestData.new
+    td2.string1 = 'hoge'
+    td2.string3 = '000'
+    td2.string5 = '111'
+    td2.list2 = 'HOGE'
+    td2.testex1_by_id = 10
+    td2.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1026"
+    td2.testex1s = [ex]
     td2.save
-    
+
     # obj をどのフィールドにも持っていない場合には何も行われないこと
     ex = TestEX1.new
+    ex.name = "1176"
     ex.save
     ex.data.should be_nil
     ex.saved?.should be_true
@@ -1167,6 +1187,7 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
     # unsaved なオブジェクトはsaveされないこと
     ex1 = TestEX1.new
+    ex1.name = "1191"
     ex1.data = td1
     ex1.save
     ex1.name = "ex1"
@@ -1179,6 +1200,7 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     ex1.saved?.should be_false
 
     ex2 = TestEX2.new
+    ex2.name = "1203"
     ex2.datas = [td2, td1]
     ex2.save
     ex2.name = "ex2"
@@ -1290,6 +1312,15 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
   it "に :ref/:reflist のフィールドに新しくセットされるオブジェクトに対しては透過的に #retained(receiver) が呼ばれること" do
     td = TestData.new
+    td.string1 = 'hoge'
+    td.string3 = '000'
+    td.string5 = '111'
+    td.list2 = 'HOGE'
+    td.testex1_by_id = 10
+    td.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1319"
+    td.testex1s = [ex]
     td.save
 
     x1a = TestEX1.new
@@ -1304,19 +1335,28 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     lambda {td.testex1 = x1a}.should raise_exception(RuntimeError)
     lambda {td.testex1s = x1a}.should raise_exception(RuntimeError)
     lambda {td.testex1s = [x1b,x1a]}.should raise_exception(RuntimeError)
-    lambda {td.testex1s = [x1b]}.should_not raise_exception(RuntimeError)
+    td.testex1s = [x1b]
     lambda {td.ex1_ex = x1a}.should raise_exception(RuntimeError)
     lambda {td.ex2s_ex = [x2a,x2b]}.should raise_exception(RuntimeError)
   end
 
   it "に :ref/:reflist のフィールドから除外されるオブジェクトのうち #saved? == true なものに対しては透過的に #released(receiver) が呼ばれること" do
     td = TestData.new
+    td.string1 = 'hoge'
+    td.string3 = '000'
+    td.string5 = '111'
+    td.list2 = 'HOGE'
+    td.testex1_by_id = 10
+    td.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1349"
+    td.testex1s = [ex]
     td.save
 
-    x1a = TestEX1.new
-    x1b = TestEX1.new
-    x2a = TestEX2.new
-    x2b = TestEX2.new
+    x1a = TestEX1.new ; x1a.name = "1356"
+    x1b = TestEX1.new ; x1b.name = "1357"
+    x2a = TestEX2.new ; x2a.name = "1358"
+    x2b = TestEX2.new ; x2b.name = "1359"
 
     # ex1
     td.testex1 = x1a
@@ -1346,12 +1386,21 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
   it "に :reflist のフィールドへの代入操作において代入前後でともにセットされたオブジェクトに対しては #retained/#released が呼ばれないこと" do
     td = TestData.new
+    td.string1 = 'hoge'
+    td.string3 = '000'
+    td.string5 = '111'
+    td.list2 = 'HOGE'
+    td.testex1_by_id = 10
+    td.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1393"
+    td.testex1s = [ex]
     td.save
 
-    x1a = TestEX1.new
-    x1b = TestEX1.new
-    x2a = TestEX2.new
-    x2b = TestEX2.new
+    x1a = TestEX1.new ; x1a.name = "1400"
+    x1b = TestEX1.new ; x1b.name = "1401"
+    x2a = TestEX2.new ; x2a.name = "1402"
+    x2b = TestEX2.new ; x2b.name = "1403"
 
     td.testex1s = [x1b, x1a]
     td.testex2s = [x2a, x2b]
@@ -1371,9 +1420,19 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
   it "に :reflist のフィールドへの代入操作においてクリアされたオブジェクトへの参照が他のフィールドに残っていた場合は #released が呼ばれないこと" do
     td = TestData.new
+    td.string1 = 'hoge'
+    td.string3 = '000'
+    td.string5 = '111'
+    td.list2 = 'HOGE'
+    td.testex1_by_id = 10
+    td.testex2s_by_id = 11
+    ex = TestEX1.new
+    ex.name = "hoge1393"
+    td.testex1s = [ex]
     td.save
 
     x1a = TestEX1.new
+    x1a.name = "1435"
     x1a.save
     x1b = TestEX1.new
 
@@ -1382,14 +1441,14 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
     td.saved?.should be_false
     x1a.saved?.should be_true
-    
+
     TestEX1.get(x1a.oid).data_by_id.should eql(td.oid)
 
     td.testex1s = [x1b]
     td.saved?.should be_false
     x1a.saved?.should be_true
     TestEX1.get(x1a.oid).data_by_id.should eql(td.oid)
-    
+
     td.testex1_by_id.should eql(x1a.oid)
     td.testex1 = nil
     td.saved?.should be_false
@@ -1414,9 +1473,13 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     @td.flag2 = false
     @td.string1 = 'hoge'
     @td.string3 = '000'
+    @td.string5 = "1463"
     @td.list2 = 'HOGE'
     @td.testex1_by_id = 10
     @td.testex2s_by_id = [11]
+    ex = TestEX1.new
+    ex.name = "hoge1468"
+    @td.testex1s = [ex]
   end
 
   after do
@@ -1574,9 +1637,9 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     @td.saved?.should be_false
     lambda {@td.remove()}.should raise_exception(Stratum::InvalidUpdateError)
     @td.save
-    lambda {@td.remove()}.should_not raise_exception(Stratum::InvalidUpdateError)
+    @td.remove()
   end
-  
+
   it "に updatable? が false のオブジェクトを #remove すると例外が発生すること" do
     @td.save
     toid = @td.oid
@@ -2450,7 +2513,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
 
     td = nil
-    lambda {td = TestData.query(:flag2 => false, :unique => true)}.should_not raise_exception(Stratum::NotUniqueResultError)
+    td = TestData.query(:flag2 => false, :unique => true)
     td.should be_instance_of(TestData)
     td.oid.should eql(tdoid3)
   end
@@ -2466,7 +2529,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
 
     td = nil
-    lambda {td = TestData.query(:flag2 => false, :unique => true)}.should_not raise_exception(Stratum::NotUniqueResultError)
+    td = TestData.query(:flag2 => false, :unique => true)
     td.should be_instance_of(TestData)
     td.oid.should eql(tdoid3)
   end

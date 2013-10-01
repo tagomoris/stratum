@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-require_relative '../stratum/connection'
+require 'stratum/connection'
 require_relative '../spec/testdatabase'
 
 module Stratum
@@ -32,7 +32,7 @@ describe Stratum::Connection, "が使われる前" do
   it "に初期化されずに #new されたら失敗すること" do
     lambda {conn = Stratum::Connection.new(); conn.close}.should raise_exception(Stratum::DatabaseError)
   end
-  
+
   it "には .setup で初期化されること" do
     host = 'hostnam'
     user = 'username'
@@ -63,8 +63,9 @@ describe Stratum::Connection, "が使われる前" do
   end
 
   it "に .setup で初期化されたら .new してOKであること" do
-    Stratum::Connection.setup(SERVERNAME, USERNAME, PASSWORD, DATABASE)
-    lambda {conn = Stratum::Connection.new(); conn.close}.should_not raise_exception(Stratum::DatabaseError)
+    Stratum::Connection.setup(SERVERNAME, USERNAME, PASSWORD)
+    conn = Stratum::Connection.new()
+    conn.close
   end
 end
 
@@ -98,7 +99,7 @@ describe Stratum::Connection, "がtxなしで使われるとき" do
 
   it "に .new したらDBに接続済みのインスタンスが返ること" do
     @conn.server_info.should_not be_nil
-    lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
+    @conn.ping()
     @conn.close()
     lambda {@conn.ping()}.should raise_exception(NoMethodError)
   end
@@ -109,10 +110,10 @@ describe Stratum::Connection, "がtxなしで使われるとき" do
   end
 
   it "に #release してもDB接続は保たれているが #owned? がfalseとなること" do
-    lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
+    @conn.ping()
     @conn.owned?.should be_true
     @conn.release()
-    lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
+    @conn.ping()
     @conn.owned?.should be_false
   end
 
@@ -254,7 +255,7 @@ describe Stratum::Connection, "でtxを使ったとき" do
     @conn.in_tx?.should be_false
 
     # query with un-owned connection (DANGER!)
-    lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
+    @conn.ping()
     @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num + 1)
   end
 
@@ -271,7 +272,7 @@ describe Stratum::Connection, "でtxを使ったとき" do
     @conn.in_tx?.should be_false
 
     @conn.query("SELECT count(*) FROM testex1").each(:as => :array).first[0].to_i.should eql(num)
-    lambda {@conn.ping()}.should_not raise_exception(NoMethodError)
+    @conn.ping()
   end
 
   after (:all) do
@@ -293,19 +294,19 @@ describe Stratum::Connection, "からプール経由でコネクションを取�
     conn1.object_id.should_not equal(conn2.object_id)
     conn1.object_id.should_not equal(conn3.object_id)
     conn2.object_id.should_not equal(conn3.object_id)
-    
+
     conn1.close()
     conn2.close()
     conn3.close()
   end
-  
+
   it "に #release したあとで再度要求したら同じものが渡されること" do
     conn1 = Stratum::Connection.conn()
     obj_id1 = conn1.object_id
     conn1.release()
 
     conn2 = Stratum::Connection.conn()
-    lambda {conn2.ping()}.should_not raise_exception(NoMethodError)
+    conn2.ping()
     conn2.object_id.should equal(obj_id1)
 
     conn2.close()
@@ -319,7 +320,7 @@ describe Stratum::Connection, "からプール経由でコネクションを取�
     end
     conn1.close()
   end
-  
+
   it "に、プール中の接続がすべて使用中の場合は新しく開かれた接続が渡されること" do 
     $STRATUM_CONNECTION_POOL.size.should eql(0)
 
@@ -328,7 +329,7 @@ describe Stratum::Connection, "からプール経由でコネクションを取�
     conn3 = Stratum::Connection.conn()
     conn2.release()
     conn2.owned?.should be_false
-    
+
     conn4 = Stratum::Connection.conn()
     $STRATUM_CONNECTION_POOL.size.should eql(3)
     $STRATUM_CONNECTION_POOL.select{|c| c.owned?}.size.should eql(3)
