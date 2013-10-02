@@ -1024,12 +1024,15 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.string3 = '000'
     td1.string5 = '111'
     td1.list2 = 'HOGE'
+
     td1.testex1_by_id = 10
     td1.testex2s_by_id = 11
+
     ex = TestEX1.new
     ex.name = "hoge1026"
     td1.testex1s = [ex]
     td1.save
+
     td2 = TestData.new
     td2.string1 = 'hoge'
     td2.string3 = '000'
@@ -1125,18 +1128,25 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
 
     td1.saved?.should be_true
     td1.testex2.should be_nil
-    td1.testex1s.should eql([])
-    td1.testex2s.should eql([])
+
+    pre_td1_testex1s_by_id = td1.testex1s_by_id
+    pre_td1_testex2s_by_id = td1.testex2s_by_id
+
     td1.ex1_ex_by_id.should be_nil
     td1.ex2s_ex_by_id.should eql([])
+
     pre_id = td1.id
 
     td1.retained(ex)
+
     td1.saved?.should be_true
+
     td1.testex1_by_id.should eql(ex.oid)
     td1.testex2_by_id.should be_nil
-    td1.testex1s_by_id.should eql([ex.oid])
-    td1.testex2s_by_id.should eql([])
+
+    td1.testex1s_by_id.should eql(pre_td1_testex1s_by_id + [ex.oid])
+    td1.testex2s_by_id.should eql(pre_td1_testex2s_by_id)
+
     td1.ex1_ex_by_id.should be_nil
     td1.ex2s_ex_by_id.should eql([])
 
@@ -1257,19 +1267,22 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     ex2a.saved?.should be_true
 
     # manualmaint 指定されていない複数のフィールドに対して実行されること
-    ex1a = TestEX1.new
-    ex1b = TestEX1.new
-    ex1c = TestEX1.new
+    ex1a = TestEX1.new ; ex1a.name = "1260"
+    ex1b = TestEX1.new ; ex1b.name = "1261"
+    ex1c = TestEX1.new ; ex1c.name = "1262"
     ex1a.save
     ex1b.save
     ex1c.save
-    ex2a = TestEX2.new
-    ex2b = TestEX2.new
-    ex2c = TestEX2.new
+    ex2a = TestEX2.new ; ex2a.name = "1266"
+    ex2b = TestEX2.new ; ex2b.name = "1267"
+    ex2c = TestEX2.new ; ex2c.name = "1268"
     ex2a.save
     ex2b.save
     ex2c.save
 
+    td1.string1 = "1273"
+    td1.string3 = "1274"
+    td1.string5 = "1275"
     td1.testex1 = ex1b
     td1.testex2 = ex2b
     td1.testex1s = [ex1c, ex1b, ex1a]
@@ -1286,7 +1299,7 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.ex1_ex_by_id.should eql(ex1b.oid)
     td1.ex2s_ex_by_id.should eql([ex2a.oid, ex2c.oid])
     pre_id = td1.id
-    
+
     td1.released(ex1b)
     td1.saved?.should be_true
     td1.testex1_by_id.should be_nil
@@ -1296,7 +1309,7 @@ describe Stratum::Model, "のオブジェクトに対してデータ操作する
     td1.ex1_ex_by_id.should eql(ex1b.oid)
     td1.ex2s_ex_by_id.should eql([ex2a.oid, ex2c.oid])
     td1.id.should_not eql(pre_id)
-    
+
     pre_id = td1.id
 
     td1.released(ex2c)
@@ -1508,20 +1521,25 @@ describe Stratum::Model, "のオブジェクトのデータを保存するとき
     @td.inserted_at.should_not be_nil
     @td.inserted_at.should_not eql(now_my)
   end
-  
+
   it "に #insert 呼び出しで必ず operated_by には Stratum.current_operator() でセットされた oid がセットされること" do
     @td.operated_by.should be_nil
     @td.insert()
     @td.operated_by.name.should eql("tagomoris")
   end
-  
+
   it "に #insert 呼び出しで必ず head は BOOL_TRUE がセットされること" do
     @td.insert()
     @td.raw_values['head'].should eql(Stratum::Model::BOOL_TRUE)
   end
-  
+
   it "に #insert 呼び出しで removed は :removed => true が指定された場合にのみ BOOL_TRUE にセットされること" do
     td2 = TestData.new
+    td2.string1 = "1528"
+    td2.string3 = "1529"
+    td2.string5 = "1530"
+    td2.list2 = ["x", "y"]
+    td2.testex1s = [TestEX1.query_or_create(:name => "1532")]
 
     @td.insert()
     @td.raw_values['removed'].should eql(Stratum::Model::BOOL_FALSE)
@@ -1730,8 +1748,10 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @td.flag2 = false
     @td.string1 = 'hoge'
     @td.string3 = '000'
+    @td.string5 = "11111111"
     @td.list2 = 'HOGE'
     @td.testex1_by_id = 10
+    @td.testex1s_by_id = [10]
     @td.testex2s_by_id = [11]
   end
 
@@ -1753,14 +1773,14 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     td.prepare_to_update()
     td.raw_values.should eql(pre)
   end
-  
+
   it "に #updatable? が false なオブジェクトに対して #prepare_to_update すると例外が発生すること" do
     @td.save()
     TestData.update_unheadnize(@td.id)
     pretd = TestData.new(@conn.query("SELECT * FROM #{TestData.tablename} WHERE id=#{@td.id}").first)
     lambda {pretd.prepare_to_update()}.should raise_exception(Stratum::InvalidUpdateError)
   end
-  
+
   it "に #prepare_to_update すると :oid 以外のすべての予約済みフィールドの内部状態値が削除されること" do
     @td.save()
     td = TestData.get(@td.oid)
@@ -1773,7 +1793,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     raw['head'].should be_nil
     raw['removed'].should be_nil
   end
-  
+
   it "に #prepare_to_update すると、すべてのユーザ定義値がコピーされること" do
     ex1a = TestEX1.query_or_create(:name => "ex1nameA")
     ex1b = TestEX1.query_or_create(:name => "ex1nameB")
@@ -1804,7 +1824,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("SELECT count(*) FROM #{TestData.tablename} WHERE oid=#{toid}").first['count(*)'].should eql(0)
     TestData.get(toid).should be_nil
   end
-  
+
   it "に oid ひとつのみを引数に .get し、その oid のレコードが存在して removed フラグが立っていない場合 head のオブジェクトひとつのみが返ること" do
     @td.save()
     ret = @conn.query("SELECT head,removed FROM #{TestData.tablename} WHERE oid=#{@td.oid}")
@@ -1816,7 +1836,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     td.should be_instance_of(TestData)
     td.oid.should eql(@td.oid)
   end
-  
+
   it "に oid ひとつのみを引数に .get したときは何度実行してもキャッシュの効果で同じ object_id のものが返るが :ignore_cache => true の場合は異なること" do
     @td.save()
     ret = @conn.query("SELECT head,removed FROM #{TestData.tablename} WHERE oid=#{@td.oid}")
@@ -1838,7 +1858,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     td4 = TestData.get(@td.oid, :ignore_cache => true)
     td4.object_id.should_not eql(td1.object_id)
   end
-  
+
   it "に oid ひとつのみを引数に .get し、その oid のレコードが存在して removed フラグが立っている場合 nil が返ること" do
     @td.save()
     toid = @td.oid
@@ -1851,7 +1871,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     td = TestData.get(toid)
     td.should be_nil
   end
-  
+
   it "に oid ひとつと :force_all => true を引数に .get したとき removed フラグが立っている oid でも head オブジェクトひとつが返ること" do
     @td.save()
     toid = @td.oid
@@ -1866,9 +1886,9 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     td.should be_instance_of(TestData)
     td.oid.should eql(toid)
   end
-  
+
   it "に oid ひとつと :before => anytime を引数に .get したとき removed フラグの立っていない、かつ anytime より前で最新のオブジェクトひとつが返ること" do
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=50,testex1_oids='51,52',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=50,testex1_oids='51,52',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=10279,head='0',removed='0',#{vals}")
     first_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=10279,head='0',removed='0',#{vals}")
@@ -1890,7 +1910,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   end
   
   it "に oid ひとつと :before => anytime を引数に .get したとき anytime より前にオブジェクトが存在しない場合は nil が返ること" do
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=50,testex1_oids='51,52',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=50,testex1_oids='51,52',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=10280,head='0',removed='0',#{vals}")
     first_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=10280,head='0',removed='0',#{vals}")
@@ -1907,14 +1927,14 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex1aoid = 50
     ex1boid = 51
     ex1coid = 52
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=#{ex1aoid},testex1_oids='#{ex1boid},#{ex1coid}',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=#{ex1aoid},testex1_oids='#{ex1boid},#{ex1coid}',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid},head='0',removed='0',#{vals}")
     td_1st_id = @conn.last_id()
-    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1aoid},head='0',removed='0',name='ex1a'")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1aoid},head='0',removed='0',name='ex1a',operated_by=1")
     ex1_1st_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{tdoid},head='0',removed='0',#{vals}")
     td_2nd_id = @conn.last_id()
-    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{ex1aoid},head='1',removed='0',name='ex1a'")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{ex1aoid},head='1',removed='0',name='ex1a',operated_by=1")
     ex1_2nd_id = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 09:01:00',oid=#{tdoid},head='1',removed='0',#{vals}")
     td_3rd_id = @conn.last_id()
@@ -1944,24 +1964,24 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex1aoid = 60
     ex1boid = 61
     ex1coid = 62
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=#{ex1aoid},operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=#{ex1aoid},operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid},head='0',removed='0',#{vals},testex1_oids='#{ex1boid},#{ex1coid}'")
     td_1st_id = @conn.last_id()
-    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1boid},head='0',removed='0',name='ex1b'")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1boid},head='0',removed='0',name='ex1b',operated_by=1")
     ex1b_1st_id = @conn.last_id()
-    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1coid},head='0',removed='0',name='ex1c'")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{ex1coid},head='0',removed='0',name='ex1c',operated_by=1")
     ex1c_1st_id = @conn.last_id()
 
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{tdoid},head='0',removed='0',#{vals},testex1_oids='#{ex1boid}'")
     td_2nd_id = @conn.last_id()
-    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{ex1boid},head='1',removed='0',name='ex1b'")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:50',oid=#{ex1boid},head='1',removed='0',name='ex1b',operated_by=1")
     ex1b_2nd_id = @conn.last_id()
-    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:51',oid=#{ex1coid},head='0',removed='0',name='ex1c'")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-19 23:00:51',oid=#{ex1coid},head='0',removed='0',name='ex1c',operated_by=1")
     ex1c_2nd_id = @conn.last_id()
 
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-23 09:01:00',oid=#{tdoid},head='1',removed='0',#{vals},testex1_oids='#{ex1boid},#{ex1coid}'")
     td_3rd_id = @conn.last_id()
-    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-23 09:01:32',oid=#{ex1coid},head='1',removed='0',name='ex1c'")
+    @conn.query("INSERT INTO #{TestEX1.tablename} SET inserted_at='2010-08-23 09:01:32',oid=#{ex1coid},head='1',removed='0',name='ex1c',operated_by=1")
     ex1c_3rd_id = @conn.last_id()
 
     td = TestData.get(tdoid, :before => Time.local(2010,8,20,0,0,0))
@@ -2012,7 +2032,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10285
     tdoid2 = 10286
     tdoid3 = 10287
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
@@ -2029,7 +2049,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10288
     tdoid2 = 10289
     tdoid3 = 10290
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2045,7 +2065,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10291
     tdoid2 = 10292
     tdoid3 = 10293
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
@@ -2066,7 +2086,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10294
     tdoid2 = 10295
     tdoid3 = 10296
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
@@ -2089,7 +2109,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10297
     tdoid2 = 10298
     tdoid3 = 10299
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     id1 = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
@@ -2111,7 +2131,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10301
     tdoid2 = 10302
     tdoid3 = 10303
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals}")
     id1_1st = @conn.last_id()
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals}")
@@ -2139,7 +2159,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid1 = 10304
     tdoid2 = 10305
     tdoid3 = 10306
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2157,7 +2177,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   end
   
   it "に oid ひとつを引数に .retrospect し、その oid のレコードが存在する場合 head/removed フラグにかかわらず全てが配列で返り、新しい順(id DESC)になっていること" do
-    vals = "flag2='0',string1='hoge',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
 
     tdoid1 = 10308
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string3='zero'")
@@ -2183,7 +2203,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   end
 
   it "に複数の oid を引数に .retrospect し、条件に該当するレコードの履歴が配列の配列で返ること、また順序が引数 oid のリスト順序になっていること" do 
-    vals = "flag2='0',string1='hoge',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
 
     tdoid1 = 40101
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string3='zero'")
@@ -2225,7 +2245,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   end
 
   it "に .dig し、条件に該当するレコードが無い場合に空配列が返ること" do
-    vals = "flag2='0',string1='hoge',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
 
     @conn.query("DELETE FROM #{TestData.tablename}")
 
@@ -2253,7 +2273,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   end
 
   it "に .dig し、条件に該当するレコードの .retrospect 結果と等しいものの配列が返ること" do
-    vals = "flag2='0',string1='hoge',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
 
     @conn.query("DELETE FROM #{TestData.tablename}")
 
@@ -2422,7 +2442,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10312
     tdoid3 = 10313
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2436,7 +2456,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10315
     tdoid3 = 10316
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2451,7 +2471,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10318
     tdoid3 = 10319
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2467,7 +2487,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10322
     tdoid3 = 10323
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='1',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='1',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2482,7 +2502,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10325
     tdoid3 = 10326
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2496,7 +2516,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10328
     tdoid3 = 10329
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2509,7 +2529,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10332
     tdoid3 = 10333
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
 
     td = nil
@@ -2523,7 +2543,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10335
     tdoid3 = 10336
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2539,7 +2559,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10338
     tdoid3 = 10339
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103371,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},flag2='0'")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103372,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},flag2='0'")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103373,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},flag2='1'")
@@ -2579,7 +2599,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10342
     tdoid4 = 10343
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103410,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},flag2='0'")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103411,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},flag2='0'")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103412,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},flag2='1'")
@@ -2621,7 +2641,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10342
     tdoid3 = 10343
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2635,7 +2655,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10345
     tdoid3 = 10346
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2649,7 +2669,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     tdoidx = 90101
     tdoidy = 90102
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidx},string4=NULL,head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidy},string4='a',head='1',removed='0',#{vals}")
     ary = TestData.query(:text => nil)
@@ -2663,7 +2683,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10348
     tdoid3 = 10349
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals}")
@@ -2679,7 +2699,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10352
     tdoid3 = 10353
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals}")
@@ -2695,7 +2715,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10355
     tdoid3 = 10356
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2709,7 +2729,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10358
     tdoid3 = 10359
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals}")
@@ -2720,7 +2740,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
   it "に :string および :unique => true を条件に .query し、条件に該当するオブジェクトがひとつだけ存在する場合はそのオブジェクトのみが返ること" do
     tdoid1 = 10361
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals}")
 
     ary = TestData.query(:string1 => "hoge", :unique => true)
@@ -2733,7 +2753,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid2 = 10365
     tdoid3 = 10366
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='1',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals}")
@@ -2764,15 +2784,15 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary3.first.string5.should eql("feJoAnx")
   end
 
-  it "に :string および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do 
+  it "に :string および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do
     tdoid1 = 10368
     tdoid2 = 10369
     tdoid3 = 10370
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string3='three',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=103681,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals}")
+    vals = "flag2='0',string3='three',string5='five',list2='blank',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103681,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string1=''")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103682,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string1='HOGE'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=103683,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals}")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=103683,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},string1=''")
 
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103684,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string1='HOGE'")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103685,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string1='HOGE'")
@@ -2782,7 +2802,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103688,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},string1='HOGE'")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=103689,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},string1='HOGE'")
 
-    ary = TestData.query(:string1 => nil, :select => :first)
+    ary = TestData.query(:string1 => '', :select => :first)
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([103681,103683])
@@ -2792,11 +2812,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([103684,103682,103689])
 
-    ary = TestData.query(:string1 => nil, :select => :last)
+    ary = TestData.query(:string1 => '', :select => :last)
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([103681,103686])
-    
+
     ary = TestData.query(:string1 => 'HOGE', :select => :last)
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
@@ -2809,7 +2829,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10403
     @conn.query("DELETE FROM #{TestData.tablename}")
     list2val = "HOGE\tPOS\tLABEL1"
-    vals = "flag2='0',string1='hoge',string3='three',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},list3='1,2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},list3='2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='0',#{vals},list3='1,2'")
@@ -2828,7 +2848,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoidz = 90203
     @conn.query("DELETE FROM #{TestData.tablename}")
     list2val = "HOGE\tPOS\tLABEL1"
-    vals = "flag2='0',string1='hoge',string3='three',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidx},head='1',removed='0',#{vals},list3=NULL")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidy},head='1',removed='0',#{vals},list3='2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoidz},head='1',removed='0',#{vals},list3=''")
@@ -2844,7 +2864,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10406
     @conn.query("DELETE FROM #{TestData.tablename}")
     list2val = "HOGE\tPOS\tLABEL1"
-    vals = "flag2='0',string1='hoge',string3='three',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},list3='1,2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},list3='2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},list3='1,2'")
@@ -2863,7 +2883,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10409
     @conn.query("DELETE FROM #{TestData.tablename}")
     list2val = "HOGE\tPOS\tLABEL1"
-    vals = "flag2='0',string1='hoge',string3='three',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},list3='1,2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},list3='2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},list3='1,2'")
@@ -2879,7 +2899,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 10413
     @conn.query("DELETE FROM #{TestData.tablename}")
     list2val = "HOGE\tPOS\tLABEL1"
-    vals = "flag2='0',string1='hoge',string3='three',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='#{list2val}',ref_oid=70,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},list3='1,2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='1',removed='1',#{vals},list3='2'")
     @conn.query("INSERT INTO #{TestData.tablename} SET inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},list3='1,2'")
@@ -2889,24 +2909,24 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary1.oid.should eql(tdoid1)
   end
 
-  it "に :stringlist および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し id 順で最初/最後のものが返ること" do 
+  it "に :stringlist および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し id 順で最初/最後のものが返ること" do
     tdoid1 = 10414
     tdoid2 = 10415
     tdoid3 = 10416
     @conn.query("DELETE FROM #{TestData.tablename}")
     vals = "flag2='0',string1='HOGE',string3='three',ref_oid=70,testex1_oids='71,72',operated_by=1"
     hitlist = "HOGE\tPOS"
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104141,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},list2=''")
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104142,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals}")
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104143,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},list2='#{hitlist}'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104141,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string5='five',list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104142,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string5='',list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104143,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},string5='five',list2='#{hitlist}'")
 
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104144,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},list2='HOGE'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104145,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},list2='#{hitlist}'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104146,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104144,inserted_at='2010-08-17 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},string5='five',list2='HOGE'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104145,inserted_at='2010-08-17 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},string5='five',list2='#{hitlist}'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104146,inserted_at='2010-08-17 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},string5='five',list2=''")
 
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104147,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},list2='#{hitlist}'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104148,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},list2=''")
-    @conn.query("INSERT INTO #{TestData.tablename} SET id=104149,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},list2='#{hitlist}'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104147,inserted_at='2010-08-18 12:15:33',oid=#{tdoid1},head='1',removed='0',#{vals},string5='five',list2='#{hitlist}'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104148,inserted_at='2010-08-18 12:15:33',oid=#{tdoid2},head='1',removed='0',#{vals},string5='five',list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET id=104149,inserted_at='2010-08-18 12:15:33',oid=#{tdoid3},head='1',removed='1',#{vals},string5='five',list2='#{hitlist}'")
 
     ary = TestData.query(:list2 => nil, :select => :first)
     ary.size.should eql(3)
@@ -2922,7 +2942,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([104141,104148,104146])
-    
+
     ary = TestData.query(:list2 => ['HOGE','POS'], :select => :last)
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
@@ -2933,12 +2953,12 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     (@conn.query("SHOW VARIABLES LIKE 'ft_min_word_len'").first['Value'].to_i == 4).should be_true
 
     @conn.query("DELETE FROM #{TestTag.tablename}")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9901,tags='HOGE POSXX 20100825-15:18 blog-new Web'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9902,tags='HOGE POSXX 20100824-15:18 blog-new Web'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9903,tags='HOGE POSXX 20100824-15:18 blog-new DBMS'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9904,tags='HOGE POSXX 20100825-15:18 m.blog-new AP'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9905,tags='HOGE POSXX 20100825-15:18 m.search DBMS'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9906,tags='HOGE POSXX 20100825-15:18 m.search Web'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9901,tags='HOGE POSXX 20100825-15:18 blog-new Web',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9902,tags='HOGE POSXX 20100824-15:18 blog-new Web',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9903,tags='HOGE POSXX 20100824-15:18 blog-new DBMS',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9904,tags='HOGE POSXX 20100825-15:18 m.blog-new AP',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9905,tags='HOGE POSXX 20100825-15:18 m.search DBMS',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9906,tags='HOGE POSXX 20100825-15:18 m.search Web',operated_by=1")
 
     ary = TestTag.query(:tags => "HOGE")
     ary.should_not be_nil
@@ -2953,12 +2973,12 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
   it "に :taglist のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
     @conn.query("DELETE FROM #{TestTag.tablename}")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9911,tags=''")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9912,tags=NULL")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9913,tags='HOGE POS 20100824-15:18 blog-new DB'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9914,tags='HOGE POS 20100825-15:18 m.blog-new AP'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9915,tags=NULL")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9916,tags='HOGE POS 20100825-15:18 m.search Web'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9911,tags='',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9912,tags=NULL,operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9913,tags='HOGE POS 20100824-15:18 blog-new DB',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9914,tags='HOGE POS 20100825-15:18 m.blog-new AP',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9915,tags=NULL,operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET oid=9916,tags='HOGE POS 20100825-15:18 m.search Web',operated_by=1")
 
     ary = TestTag.query(:tags => nil)
     ary.should_not be_nil
@@ -2973,29 +2993,29 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     tdoid3 = 19923
     @conn.query("DELETE FROM #{TestTag.tablename}")
 
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199211,oid=#{tdoid1},tags='',head='0'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199212,oid=#{tdoid2},tags=NULL,head='0'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199213,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199211,oid=#{tdoid1},tags='',head='0',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199212,oid=#{tdoid2},tags=NULL,head='0',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199213,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',head='0',operated_by=1")
 
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199214,oid=#{tdoid1},tags='',head='0'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199215,oid=#{tdoid2},tags='POSXX MOGE',head='0'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199216,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',head='0'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199214,oid=#{tdoid1},tags='',head='0',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199215,oid=#{tdoid2},tags='POSXX MOGE',head='0',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199216,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',head='0',operated_by=1")
 
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199217,oid=#{tdoid1},tags='POSXX'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199218,oid=#{tdoid2},tags='POSXX MOGE'")
-    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199219,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',removed='1'")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199217,oid=#{tdoid1},tags='POSXX',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199218,oid=#{tdoid2},tags='POSXX MOGE',operated_by=1")
+    @conn.query("INSERT INTO #{TestTag.tablename} SET id=199219,oid=#{tdoid3},tags='HOGE POSXX 20100824-15:18 blog-new DB',removed='1',operated_by=1")
 
     ary = TestTag.query(:tags => 'POSXX', :select => :first)
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([199217,199215,199213])
-    
+
     ary = TestTag.query(:tags => 'POSXX', :select => :last)
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([199217,199218,199219])
   end
-  
+
   it "に :ref のみを条件に .query し、条件に該当し removed フラグの立っていないオブジェクトがすべて格納された配列で返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
@@ -3003,14 +3023,14 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7001,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7002,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7003,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',operated_by=1"
     tdoid1 = 10414
     tdoid2 = 10415
     tdoid3 = 10416
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid1},removed='0',#{vals},ref_oid=7001")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid2},removed='0',#{vals},ref_oid=7001")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid3},removed='0',#{vals},ref_oid=7002")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid1},removed='0',#{vals},testex1_oids='',ref_oid=7001")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid2},removed='0',#{vals},testex1_oids='',ref_oid=7001")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid3},removed='0',#{vals},testex1_oids='',ref_oid=7002")
 
     ex1 = TestEX1.get(7001)
     ex1.should_not be_nil
@@ -3032,15 +3052,15 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=90301,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=90303,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',operated_by=1"
     tdoid1 = 90311
     tdoid2 = 90312
     tdoid3 = 90313
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid1},removed='0',#{vals},ref_oid=90301")
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid2},removed='0',#{vals},ref_oid=NULL")
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid3},removed='0',#{vals},ref_oid=90303")
-    
+
     ary = TestData.query(:testex1 => nil)
     ary.should be_instance_of(Array)
     ary.size.should eql(1)
@@ -3054,8 +3074,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7001,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7002,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7003,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',operated_by=1"
     tdoid1 = 10417
     tdoid2 = 10418
     tdoid3 = 10419
@@ -3089,8 +3109,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7001,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7002,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7003,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',operated_by=1"
     tdoid1 = 10421
     tdoid2 = 10422
     tdoid3 = 10423
@@ -3113,8 +3133,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7001,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7002,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7003,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',operated_by=1"
     tdoid1 = 10424
     tdoid2 = 10425
     tdoid3 = 10426
@@ -3130,17 +3150,17 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.oid.should eql(tdoid2)
   end
 
-  it "に :ref および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do 
+  it "に :ref および :select => :first/:last を条件に .query し、それぞれ query条件(暗黙に :force_all => true)に合致し oid毎に id 順で最初/最後のものが返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
 
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7001,name='hoge1',operated_by=1")
-    
+
     tdoid1 = 21421
     tdoid2 = 21422
     tdoid3 = 21423
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='HOGE',string3='three',list2='MOGE',testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='HOGE',string3='three',string5='five',list2='MOGE',testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET id=214211,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals},ref_oid=NULL")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=214212,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=214213,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},ref_oid=7001")
@@ -3170,7 +3190,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2])
     ary.sort_by(&:oid).map(&:id).should eql([214211,214215])
-    
+
     ary = TestData.query(:testex1 => ex1, :select => :last)
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid2,tdoid3])
@@ -3184,8 +3204,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7011,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7012,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7013,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=7001,operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',ref_oid=7001,operated_by=1"
     tdoid1 = 10427
     tdoid2 = 10428
     tdoid3 = 10429
@@ -3209,7 +3229,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([tdoid1, tdoid3])
   end
-  
+
   it "に :reflist のみを条件に .query したとき NULL がセットされているフィールドに対して nil でクエリして成功すること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX2.tablename}")
@@ -3217,8 +3237,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=90401,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=90402,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=90403,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=9401,operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',ref_oid=9401,operated_by=1"
     tdoid1 = 90411
     tdoid2 = 90412
     tdoid3 = 90413
@@ -3227,7 +3247,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid2},removed='0',#{vals},testex2s='7012,7013'")
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid3},removed='0',#{vals},testex2s=NULL")
     @conn.query("INSERT INTO #{TestData.tablename} SET oid=#{tdoid4},removed='1',#{vals},testex2s='7011,7012'")
-    
+
     ary = TestData.query(:testex2s => nil)
     ary.should be_instance_of(Array)
     ary.size.should eql(2)
@@ -3241,8 +3261,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7011,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7012,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7013,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=7001,operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',ref_oid=7001,operated_by=1"
     tdoid1 = 10427
     tdoid2 = 10428
     tdoid3 = 10429
@@ -3266,7 +3286,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.size.should eql(3)
     ary.map(&:oid).sort.should eql([tdoid1, tdoid3, tdoid4])
   end
-  
+
   it "に :reflist および :unique => true を条件に .query し、条件に該当するオブジェクトがひとつだけ存在する場合はそのオブジェクトのみが返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX2.tablename}")
@@ -3274,8 +3294,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7011,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7012,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7013,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=7001,operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',ref_oid=7001,operated_by=1"
     tdoid1 = 10427
     tdoid2 = 10428
     tdoid3 = 10429
@@ -3308,8 +3328,8 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7011,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7012,name='hoge2',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7013,name='hoge3',operated_by=1")
-    
-    vals = "flag2='0',string1='hoge',string3='three',list2='blank',ref_oid=7001,operated_by=1"
+
+    vals = "flag2='0',string1='hoge',string3='three',string5='five',list2='blank',testex1_oids='',ref_oid=7001,operated_by=1"
     tdoid1 = 10427
     tdoid2 = 10428
     tdoid3 = 10429
@@ -3335,12 +3355,12 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7011,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX2.tablename} SET oid=7012,name='hoge2',operated_by=1")
-    
+
     tdoid1 = 22421
     tdoid2 = 22422
     tdoid3 = 22423
     @conn.query("DELETE FROM #{TestData.tablename}")
-    vals = "flag2='0',string1='HOGE',string3='three',list2='MOGE',ref_oid=7001,testex1_oids='71,72',operated_by=1"
+    vals = "flag2='0',string1='HOGE',string3='three',string5='five',list2='MOGE',ref_oid=7001,testex1_oids='71,72',operated_by=1"
     @conn.query("INSERT INTO #{TestData.tablename} SET id=224211,inserted_at='2010-08-16 12:15:33',oid=#{tdoid1},head='0',removed='0',#{vals}")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=224212,inserted_at='2010-08-16 12:15:33',oid=#{tdoid2},head='0',removed='0',#{vals},testex2s='7011'")
     @conn.query("INSERT INTO #{TestData.tablename} SET id=224213,inserted_at='2010-08-16 12:15:33',oid=#{tdoid3},head='0',removed='0',#{vals},testex2s='7012'")
@@ -3370,7 +3390,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
     ary.sort_by(&:oid).map(&:id).should eql([224211,224216])
-    
+
     ary = TestData.query(:testex2s => [ex2a,ex2b], :select => :last)
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([tdoid1,tdoid3])
@@ -3381,7 +3401,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("DELETE FROM #{TestEX2.tablename}")
-    
+
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7211,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7212,name='hoge2',operated_by=1")
 
@@ -3393,16 +3413,16 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex2a = TestEX2.get(7221)
     ex2b = TestEX2.get(7222)
 
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', ref_oid=7211, testex2s='7221'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7112,operated_by=1, flag1='0', flag2='0', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7222'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7113,operated_by=1, flag1='0', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7221,7222'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7114,operated_by=1, flag1='1', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7212, testex2s='7221'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7115,operated_by=1, flag1='1', flag2='0', string1='HOGE', string2='OPT3', ref_oid=7212, testex2s='7221,7222'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', string3='', string5='', ref_oid=7211, testex1_oids='', testex2s='7221', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7112,operated_by=1, flag1='0', flag2='0', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7222', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7113,operated_by=1, flag1='0', flag2='1', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7221,7222', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7114,operated_by=1, flag1='1', flag2='1', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7212, testex2s='7221', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7115,operated_by=1, flag1='1', flag2='0', string1='HOGE', string2='OPT3', string3='', string5='', testex1_oids='', ref_oid=7212, testex2s='7221,7222', list2=''")
 
     ary = TestData.query(:flag1 => true, :flag2 => false)
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([7111, 7115])
-    
+
     ary = TestData.query(:flag1 => false, :flag2 => false)
     ary.size.should eql(1)
     ary.map(&:oid).sort.should eql([7112])
@@ -3418,11 +3438,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary = TestData.query(:string2 => 'OPT1', :testex1 => ex1a)
     ary.size.should eql(1)
     ary.map(&:oid).sort.should eql([7111])
-    
+
     ary = TestData.query(:testex1 => ex1b, :flag1 => true)
     ary.size.should eql(2)
     ary.map(&:oid).sort.should eql([7114, 7115])
-    
+
     ary = TestData.query(:testex1 => ex1a, :testex2s => [ex2a.oid, ex2b.oid])
     ary.size.should eql(1)
     ary.map(&:oid).sort.should eql([7113])
@@ -3436,7 +3456,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("DELETE FROM #{TestEX2.tablename}")
-    
+
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7211,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7212,name='hoge2',operated_by=1")
 
@@ -3448,11 +3468,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex2a = TestEX2.get(7221)
     ex2b = TestEX2.get(7222)
 
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', ref_oid=7211, testex2s='7221'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7112,operated_by=1, flag1='0', flag2='0', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7222'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7113,operated_by=1, flag1='0', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7221,7222'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7114,operated_by=1, flag1='1', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7212, testex2s='7221'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7115,operated_by=1, flag1='1', flag2='0', string1='HOGE', string2='OPT3', ref_oid=7212, testex2s='7221,7222'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7221', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7112,operated_by=1, flag1='0', flag2='0', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7222', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7113,operated_by=1, flag1='0', flag2='1', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7221,7222', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7114,operated_by=1, flag1='1', flag2='1', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7212, testex2s='7221', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7115,operated_by=1, flag1='1', flag2='0', string1='HOGE', string2='OPT3', string3='', string5='', testex1_oids='', ref_oid=7212, testex2s='7221,7222', list2=''")
 
     ary1 = TestData.query(:flag1 => true, :flag2 => false).map(&:oid)
     aryA = TestData.query(:flag1 => true).map(&:oid)
@@ -3460,7 +3480,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary2 = aryA & aryB
     ary2.should eql(ary1)
     TestData.query(:flag1 => true, :flag2 => false, :count => true).should eql(ary1.size)
-    
+
     ary1 = TestData.query(:flag1 => false, :flag2 => false).map(&:oid)
     aryA = TestData.query(:flag1 => false).map(&:oid)
     aryB = TestData.query(:flag2 => false).map(&:oid)
@@ -3488,14 +3508,14 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary2 = aryA & aryB
     ary2.should eql(ary1)
     TestData.query(:string2 => 'OPT1', :testex1 => ex1a, :count => true).should eql(ary1.size)
-    
+
     ary1 = TestData.query(:testex1 => ex1b, :flag1 => true).map(&:oid)
     aryA = TestData.query(:testex1 => ex1b).map(&:oid)
     aryB = TestData.query(:flag1 => true).map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
     TestData.query(:testex1 => ex1b, :flag1 => true, :count => true).should eql(ary1.size)
-    
+
     ary1 = TestData.query(:testex1 => ex1a, :testex2s => [ex2a.oid, ex2b.oid]).map(&:oid)
     aryA = TestData.query(:testex1 => ex1a).map(&:oid)
     aryB = TestData.query(:testex2s => [ex2a, ex2b]).map(&:oid)
@@ -3517,7 +3537,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     @conn.query("DELETE FROM #{TestData.tablename}")
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("DELETE FROM #{TestEX2.tablename}")
-    
+
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7211,name='hoge1',operated_by=1")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=7212,name='hoge2',operated_by=1")
 
@@ -3529,11 +3549,11 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex2a = TestEX2.get(7221)
     ex2b = TestEX2.get(7222)
 
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', ref_oid=7211, testex2s='7221'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7112,operated_by=1, flag1='0', flag2='0', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7222'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7113,operated_by=1, flag1='0', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7211, testex2s='7221,7222'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7114,operated_by=1, flag1='1', flag2='1', string1='HOGEPOS', string2='OPT2', ref_oid=7212, testex2s='7221'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7115,operated_by=1, flag1='1', flag2='0', string1='HOGE', string2='OPT3', ref_oid=7212, testex2s='7221,7222'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7221', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7112,operated_by=1, flag1='0', flag2='0', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7222', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7113,operated_by=1, flag1='0', flag2='1', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7211, testex2s='7221,7222', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7114,operated_by=1, flag1='1', flag2='1', string1='HOGEPOS', string2='OPT2', string3='', string5='', testex1_oids='', ref_oid=7212, testex2s='7221', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=7115,operated_by=1, flag1='1', flag2='0', string1='HOGE', string2='OPT3', string3='', string5='', testex1_oids='', ref_oid=7212, testex2s='7221,7222', list2=''")
 
     ary1 = TestData.query(:flag1 => true, :flag2 => false).map(&:oid)
     aryA = TestData.query(:flag1 => true).map(&:oid)
@@ -3541,7 +3561,7 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary2 = aryA & aryB
     ary2.should eql(ary1)
     TestData.query(:flag1 => true, :flag2 => false, :oidonly => true).sort.should eql(ary2.sort)
-    
+
     ary1 = TestData.query(:flag1 => false, :flag2 => false).map(&:oid)
     aryA = TestData.query(:flag1 => false).map(&:oid)
     aryB = TestData.query(:flag2 => false).map(&:oid)
@@ -3569,14 +3589,14 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ary2 = aryA & aryB
     ary2.should eql(ary1)
     TestData.query(:string2 => 'OPT1', :testex1 => ex1a, :oidonly => true).sort.should eql(ary1.sort)
-    
+
     ary1 = TestData.query(:testex1 => ex1b, :flag1 => true).map(&:oid)
     aryA = TestData.query(:testex1 => ex1b).map(&:oid)
     aryB = TestData.query(:flag1 => true).map(&:oid)
     ary2 = aryA & aryB
     ary2.should eql(ary1)
     TestData.query(:testex1 => ex1b, :flag1 => true, :oidonly => true).sort.should eql(ary1.sort)
-    
+
     ary1 = TestData.query(:testex1 => ex1a, :testex2s => [ex2a.oid, ex2b.oid]).map(&:oid)
     aryA = TestData.query(:testex1 => ex1a).map(&:oid)
     aryB = TestData.query(:testex2s => [ex2a, ex2b]).map(&:oid)
@@ -3602,15 +3622,15 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     lambda {TestEX1.query_or_create(:name => 'hoge1')}.should raise_exception(Stratum::NotUniqueResultError)
   end
 
-  it "に、複数の適当な条件で .query_or_create を行って、複数のオブジェクトが該当する場合に例外が発生すること" do 
+  it "に、複数の適当な条件で .query_or_create を行って、複数のオブジェクトが該当する場合に例外が発生すること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8101,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8102,operated_by=1, flag1='1', flag2='0', string1='HOGEMOGE', string2='OPT1'")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8103,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT2'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8101,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', string3='', string5='', ref_oid=7211, testex1_oids='', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8102,operated_by=1, flag1='1', flag2='0', string1='HOGEMOGE', string2='OPT1', string3='', string5='', ref_oid=7211, testex1_oids='', list2=''")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8103,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT2', string3='', string5='', ref_oid=7211, testex1_oids='', list2=''")
 
     lambda {TestData.query_or_create(:flag1 => true, :flag2 => false, :string2 => 'OPT1')}.should raise_exception(Stratum::NotUniqueResultError)
   end
-  
+
   it "に、単一の適当な条件で .query_or_create を行って、単一の既存オブジェクトが該当する場合にそのオブジェクトが返ること" do
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=8011,name='hoge1',operated_by=1")
@@ -3623,16 +3643,16 @@ describe Stratum::Model, "によってDB操作を行うとき" do
 
   it "に、複数の適当な条件で .query_or_create を行って、単一の既存オブジェクトが該当する場合にそのオブジェクトが返ること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8111,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', string3='', string5='', ref_oid=7211, testex1_oids='', list2=''")
     xid = @conn.last_id()
-    
+
     td = TestData.query_or_create(:flag1 => true, :flag2 => false, :string1 => 'HOGEPOS')
     td.id.should eql(xid)
     td.flag1.should be_true
     td.flag2.should be_false
     td.string1.should eql('HOGEPOS')
   end
-  
+
   it "に、単一の適当な条件で .query_or_create を行って、該当するオブジェクトがひとつもない場合に新しく作られたオブジェクトが返り、条件に指定した値がセットされていること" do
     @conn.query("DELETE FROM #{TestEX1.tablename}")
     @conn.query("INSERT INTO #{TestEX1.tablename} SET oid=8021,name='hoge1',operated_by=1")
@@ -3644,19 +3664,21 @@ describe Stratum::Model, "によってDB操作を行うとき" do
     ex1.oid.should_not eql(8021)
     ex1.name.should eql('hoge12')
   end
-  
+
   it "に、複数の適当な条件で .query_or_create を行って、該当するオブジェクトがひとつもない場合に新しく作られたオブジェクトが返り、条件に指定した値すべてがセットされていること" do
     @conn.query("DELETE FROM #{TestData.tablename}")
-    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8121,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1'")
+    @conn.query("INSERT INTO #{TestData.tablename} SET oid=8121,operated_by=1, flag1='1', flag2='0', string1='HOGEPOS', string2='OPT1', string3='', string5='', ref_oid=7211, testex1_oids='', list2=''")
     xid = @conn.last_id()
-    
-    td = TestData.query_or_create(:flag1 => true, :flag2 => false, :string1 => 'HOGEMOGE')
+
+    ex1 = TestEX1.query_or_create(:name => "3658")
+
+    td = TestData.query_or_create(:flag1 => true, :flag2 => false, :string1 => 'HOGEMOGE', :string3 => 'pos', :string5 => 'moge', :list2 => ["hoge", "moge"], :testex1s => [ex1])
     td.should_not be_nil
     td.id.should_not eql(xid)
     td.flag1.should be_true
     td.flag2.should be_false
     td.string1.should eql('HOGEMOGE')
   end
-  
+
   # tag
 end
