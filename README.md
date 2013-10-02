@@ -1,6 +1,6 @@
 # Stratum
 
-* http://github.com/tagomoris/Stratum
+* http://github.com/tagomoris/stratum
 
 ## DESCRIPTION
 
