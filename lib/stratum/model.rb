@@ -984,7 +984,7 @@ module Stratum
                   if v
                     words = [v].flatten
                     strict_equality_checks.push(Proc.new{|obj| words.inject(true){|r,s| r and obj.send(k).include?(s)}})
-                    words.flatten.map{|s| s.split(/[^0-9a-zA-Z]/)}.flatten.map{|s| '+' + s}.join(' ')
+                    words.flatten.map{|s| s.split(/[^0-9a-zA-Z_]/)}.flatten.map{|s| '+' + s}.join(' ')
                   else
                     nil
                   end
